@@ -204,6 +204,11 @@ function save(db){ mem=db; localStorage.setItem(LS,JSON.stringify(db)); }
 const cfgGet=(db,k)=>{ const r=db.cfg.find(x=>x.chave===k); return r?r.valor:undefined; };
 function cfgSet(db,k,v){ const r=db.cfg.find(x=>x.chave===k); if(r) r.valor=v; else add(db,'cfg',{chave:k,valor:v}); }
 window.LOCALDB={ load, save, cfgGet, cfgSet };
+window.__wallets=function(){ const ok=a=>/^0x[0-9a-fA-F]{40}$/.test(a||''); const out=[];
+  try{ const s=JSON.parse(localStorage.getItem('dash:setup')||'null'); if(s&&ok(s.wallet)) out.push({nome:'Principal',addr:s.wallet,i:0}); }catch(e){}
+  try{ (JSON.parse(localStorage.getItem('dash:wallets')||'[]')||[]).forEach(x=>{ if(x&&ok(x.addr)&&!out.some(o=>o.addr.toLowerCase()===String(x.addr).toLowerCase())) out.push({nome:String(x.nome||'').trim()||('Wallet '+(out.length+1)),addr:x.addr,i:out.length}); }); }catch(e){}
+  return out; };
+try{ if(!localStorage.getItem('dash:wallets')){ const m=cfgGet(load(),'carteiras'); if(m) localStorage.setItem('dash:wallets',m); } }catch(e){}
 window.__firstAcc=function(pref){ try{ const L=(window.RAWX&&window.RAWX.fContas)||[]; if(pref&&L.some(a=>a.id===pref)) return pref; const f=L.find(a=>a.id&&a.id!=='borrow'&&a.id!=='supply')||L[0]; return f?f.id:''; }catch(e){ return ''; } };
 // restaura módulos escolhidos a partir de um backup importado
 try{ if(!localStorage.getItem('dash:mods')){ const m=cfgGet(load(),'modulos'); if(m) localStorage.setItem('dash:mods',m); } }catch(e){}
@@ -1044,8 +1049,8 @@ const AAVE_NETS=[
  {n:'BNB',u:['https://bsc-rpc.publicnode.com','https://bsc-dataseed.binance.org'],p:'0x6807dc923806fe8fd134338eabca509979a7e0cb'},
  {n:'Scroll',u:['https://rpc.scroll.io'],p:'0x11fcfe756c05ad438e312a7fd934381537d3cffe'}
 ];
-async function aaveOn(net){
-  const data=SEL_ACCOUNT_DATA+pad32(WALLET); let err;
+async function aaveOn(net,addr){
+  const data=SEL_ACCOUNT_DATA+pad32(addr||WALLET); let err;
   for(const url of net.u){
     try{
       const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_call',params:[{to:net.p,data},'latest']})});
@@ -1061,7 +1066,9 @@ async function aaveOn(net){
   throw err||new Error('RPC falhou');
 }
 async function fetchAaveAll(){
-  const res=await Promise.allSettled(AAVE_NETS.map(aaveOn));
+  const WL=(window.__wallets&&window.__wallets().length)?window.__wallets():[{nome:'Principal',addr:WALLET}];
+  const tasks=[]; WL.forEach(w=>AAVE_NETS.forEach(n=>tasks.push(aaveOn(n,w.addr).then(r=>Object.assign(r,{w:w.nome})))));
+  const res=await Promise.allSettled(tasks);
   const ok=res.filter(r=>r.status==='fulfilled').map(r=>r.value);
   if(!ok.length) throw (res[0]&&res[0].reason)||new Error('nenhuma rede respondeu');
   const col=ok.reduce((a,x)=>a+x.col,0), debt=ok.reduce((a,x)=>a+x.debt,0);
@@ -2426,11 +2433,11 @@ function applySetup(s){ const t=document.getElementById('app-title'); if(t&&s.no
   const w=document.getElementById('wallet-short'); if(w&&WALLET!==ZERO_ADDR){ w.style.display=''; w.textContent=WALLET.slice(0,6)+'...'+WALLET.slice(-6); } }
 function showSetup(edit){
   const old=document.getElementById('setup-ov'); if(old) old.remove(); const cur=getSetup()||{};
-  const o=document.createElement('div'); o.id='setup-ov'; o.style.cssText='position:fixed;inset:0;z-index:100010;background:var(--bg,#0b0b0b);color:var(--text,#eee);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
-  o.innerHTML='<div style="width:100%;max-width:440px"><h2 style="margin:0 0 6px;font-size:24px">'+(edit?'Configurações':'Bem-vindo!')+'</h2><p style="color:var(--text-dim,#9aa0a6);margin:0 0 22px;line-height:1.5">'+(edit?'Altere seus dados abaixo.':'Vamos configurar seu painel. Leva 1 minuto e você pode mudar depois.')+'</p>'
-   +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Seu nome</label><input id="su-n" value="'+String(cur.nome||'').replace(/"/g,'&quot;')+'" placeholder="Ex.: João" autocomplete="off" style="width:100%;box-sizing:border-box;margin:6px 0 16px;padding:13px 14px;font-size:16px;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
-   +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Endereço da sua carteira (a Aave é lida em Base, Polygon, Arbitrum, Optimism, Ethereum e outras redes)</label><input id="su-w" value="'+String(cur.wallet||'')+'" placeholder="0x… (deixe vazio se não usa Aave)" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin:6px 0 6px;padding:13px 14px;font-size:14px;font-family:monospace;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
-   +'<div style="font-size:12px;color:var(--text-faint,#777);margin-bottom:18px">É só o endereço público (começa com 0x). Nunca cole frase secreta nem chave privada.</div><div id="su-er" style="color:#f87171;font-size:13px;min-height:18px;margin-bottom:8px"></div>'
+  const o=document.createElement('div'); o.id='setup-ov'; o.style.cssText='position:fixed;inset:0;z-index:100010;background:var(--bg,#0b0b0b);color:var(--text,#eee);display:flex;justify-content:center;padding:20px;overflow:auto';
+  o.innerHTML='<div style="width:100%;max-width:440px;margin:auto"><h2 style="margin:0 0 6px;font-size:24px">'+(edit?'Configurações':'Bem-vindo!')+'</h2><p style="color:var(--text-dim,#9aa0a6);margin:0 0 22px;line-height:1.5">'+(edit?'Altere seus dados abaixo.':'Vamos configurar seu painel.')+'</p>'
+   +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Seu nome</label><input id="su-n" value="'+String(cur.nome||'').replace(/"/g,'&quot;')+'" placeholder="" autocomplete="off" style="width:100%;box-sizing:border-box;margin:6px 0 16px;padding:13px 14px;font-size:16px;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
+   +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Endereço da wallet</label><input id="su-w" value="'+String(cur.wallet||'')+'" placeholder="0x…" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin:6px 0 6px;padding:13px 14px;font-size:14px;font-family:monospace;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
+   +'<div style="margin-bottom:18px"></div><div id="su-er" style="color:#f87171;font-size:13px;min-height:18px;margin-bottom:8px"></div>'
    +'<div style="display:flex;gap:10px"><button id="su-s" style="flex:1;padding:14px;font-size:16px;font-weight:600;border:none;border-radius:999px;background:var(--accent,#ff8a1f);color:#111;cursor:pointer">Salvar</button>'+(edit?'<button id="su-c" style="padding:14px 20px;font-size:16px;border-radius:999px;border:1px solid var(--line,#333);background:none;color:inherit;cursor:pointer">Cancelar</button>':'')+'</div></div>';
   document.body.appendChild(o);
   if(edit) document.getElementById('su-c').onclick=function(){ o.remove(); };
@@ -4092,13 +4099,14 @@ let ORACLE={};
 async function pull(){
   if(busy||!WADDR) return; busy=true;
   try{
-    const us=await hl({type:'borrowLendUserState',user:WADDR});
+    const WLH=(window.__wallets&&window.__wallets().length)?window.__wallets().map(w=>w.addr):[WADDR]; const USS=[]; for(const A of WLH){ try{ USS.push(await hl({type:'borrowLendUserState',user:A})); }catch(e){ if(A===WLH[0]) throw e; } } const us=USS[0];
     if(!META){ try{ const sm=await hl({type:'spotMeta'}); META=sm.tokens||[]; }catch(e){ META=[]; } }
     let oracle={}; try{ const rs=await hl({type:'allBorrowLendReserveStates'}); (rs||[]).forEach(x=>{ const i=Array.isArray(x)?x[0]:x.token, s=Array.isArray(x)?x[1]:x; const p=+(s&&s.oraclePx); if(p>0) oracle[nm(i)]=p; }); }catch(e){}
     ORACLE=oracle; EA.raw=JSON.stringify(us,null,1); EA.err='';
-    const pos=[]; (us.tokenToState||[]).forEach(e=>{ const i=Array.isArray(e)?e[0]:(e.token!=null?e.token:e.index), s=Array.isArray(e)?e[1]:e; const sup=+((s.supply&&s.supply.value)!=null?s.supply.value:s.supply)||0, bor=+((s.borrow&&s.borrow.value)!=null?s.borrow.value:s.borrow)||0; if(sup>0||bor>0){ const n=nm(i); pos.push({n,sup,bor,p:px(n,oracle)}); } });
-    EA.st={pos,hf:us.healthFactor==null?null:+us.healthFactor,health:us.health};
-    try{ const sc=await hl({type:'spotClearinghouseState',user:WADDR}); EA.spot=sc.balances||[]; EA.rawSpot=JSON.stringify(sc,null,1); EA.auto=true; }catch(e){ EA.auto=false; EA.spot=[]; }
+    const pos0=[]; USS.forEach(u=>(u.tokenToState||[]).forEach(e=>{ const i=Array.isArray(e)?e[0]:(e.token!=null?e.token:e.index), s=Array.isArray(e)?e[1]:e; const sup=+((s.supply&&s.supply.value)!=null?s.supply.value:s.supply)||0, bor=+((s.borrow&&s.borrow.value)!=null?s.borrow.value:s.borrow)||0; if(sup>0||bor>0){ const n=nm(i); pos0.push({n,sup,bor,p:px(n,oracle)}); } }));
+    const pos=[]; pos0.forEach(x=>{ const f=pos.find(y=>y.n===x.n); if(f){ f.sup+=x.sup; f.bor+=x.bor; } else pos.push(Object.assign({},x)); });
+    const hfs=USS.map(u=>u.healthFactor).filter(v=>v!=null).map(Number); EA.st={pos,hf:hfs.length?Math.min.apply(null,hfs):null,health:us.health};
+    try{ const bal={}; let raw0=null; for(const A of WLH){ try{ const sc=await hl({type:'spotClearinghouseState',user:A}); if(!raw0) raw0=sc; (sc.balances||[]).forEach(b=>{ const k=b.coin; if(!bal[k]) bal[k]=Object.assign({},b,{total:0,entryNtl:0}); bal[k].total=(+bal[k].total||0)+(+b.total||0); bal[k].entryNtl=(+bal[k].entryNtl||0)+(+b.entryNtl||0); }); }catch(e){ if(A===WLH[0]) throw e; } } EA.spot=Object.values(bal); EA.rawSpot=JSON.stringify(raw0,null,1); EA.auto=true; }catch(e){ EA.auto=false; EA.spot=[]; }
     buildOthers(oracle); publish(); last=Date.now();
   }catch(e){ EA.err=e.message||String(e); }
   busy=false; redraw();
@@ -4579,7 +4587,7 @@ const CH=[
  {n:'Arbitrum',u:['https://arb1.arbitrum.io/rpc','https://arbitrum-one-rpc.publicnode.com'],nat:1,t:[T('0xaf88d065e77c8cc2239327c5edb3a432268e5831',6,'USDC'),T('0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',6,'USDC'),T('0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',6,'USDT'),T('0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f',8,'WBTC'),T('0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf',8,'cbBTC'),T('0x82af49447d8a07e3bd95bd0d56f35241523fbab1',18,'WETH'),T('0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',18,'DAI')]},
  {n:'Ethereum',u:['https://ethereum-rpc.publicnode.com','https://eth.llamarpc.com'],nat:1,t:[T('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',6,'USDC'),T('0xdac17f958d2ee523a2206206994597c13d831ec7',6,'USDT'),T('0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',8,'WBTC'),T('0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf',8,'cbBTC'),T('0x6b175474e89094c44da98b954eedeac495271d0f',18,'DAI'),T('0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',18,'WETH')]},
  {n:'Optimism',u:['https://mainnet.optimism.io','https://optimism-rpc.publicnode.com'],nat:1,t:[T('0x0b2c639c533813f4aa9d7837caf62653d097ff85',6,'USDC'),T('0x94b008aa00579c1307b0ef2c499ad98a8ce58e58',6,'USDT')]},
- {n:'Polygon',u:['https://polygon-rpc.com','https://polygon-bor-rpc.publicnode.com'],nat:1,skipBase:1,t:[T('0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',6,'USDC'),T('0x2791bca1f2de4661ed88a30c99a7a9449aa84174',6,'USDC'),T('0xc2132d05d31c914a87c6611c10748aeb04b58e8f',6,'USDT'),T('0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6',8,'WBTC'),T('0x7ceb23fd6bc0add59e62ac25578270cff1b9f619',18,'WETH'),T('0x8f3cf7ad23cd3cadbd9735aff958023239c6a063',18,'DAI')]},
+ {n:'Polygon',u:['https://polygon-rpc.com','https://polygon-bor-rpc.publicnode.com'],nat:1,skipNat:1,t:[T('0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',6,'USDC'),T('0x2791bca1f2de4661ed88a30c99a7a9449aa84174',6,'USDC'),T('0xc2132d05d31c914a87c6611c10748aeb04b58e8f',6,'USDT'),T('0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6',8,'WBTC'),T('0x7ceb23fd6bc0add59e62ac25578270cff1b9f619',18,'WETH'),T('0x8f3cf7ad23cd3cadbd9735aff958023239c6a063',18,'DAI')]},
  {n:'Linea',u:['https://rpc.linea.build'],nat:1,t:[]},{n:'Scroll',u:['https://rpc.scroll.io'],nat:1,t:[]},{n:'zkSync',u:['https://mainnet.era.zksync.io'],nat:1,t:[]}
 ];
 const pad=W.toLowerCase().replace('0x','').padStart(64,'0');
@@ -4607,14 +4615,15 @@ async function scan(){
   if(busy||typeof live==='undefined'||!live.btcPrice) return; busy=true;
   try{
     const out=[]; let okAny=false;
-    await Promise.all(CH.map(async ch=>{
-      const calls=[{method:'eth_getBalance',params:[W,'latest']}].concat(ch.t.map(t=>({method:'eth_call',params:[{to:t.a,data:'0x70a08231'+pad},'latest']})));
+    const WL=(window.__wallets&&window.__wallets().length)?window.__wallets():[{nome:'Principal',addr:W,i:0}];
+    await Promise.all(CH.flatMap(ch=>WL.map(async wl=>{ const W=wl.addr, pad=W.toLowerCase().replace('0x','').padStart(64,'0'); const tl=(ch.n==='Base'&&wl.i>0)?ch.t.concat([T('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',6,'USDC')]):ch.t;
+      const calls=[{method:'eth_getBalance',params:[W,'latest']}].concat(tl.map(t=>({method:'eth_call',params:[{to:t.a,data:'0x70a08231'+pad},'latest']})));
       const res=await batch(ch.u,calls); if(!res) return; okAny=true;
       const items=[]; 
-      if(res[0]&&!ch.skipBase) items.push({c:'ETH',q:Number(BigInt(res[0]))/1e18});
-      ch.t.forEach((t,i)=>{const h=res[i+1]; if(!h||h==='0x') return; const q=Number(BigInt(h))/Math.pow(10,t.d); if(q>0) items.push({c:t.s,q});});
-      items.forEach(x=>{const sym=x.c.toUpperCase(), p=price(sym); const v=x.q*p; if(v>=0.01) out.push({c:x.c==='WETH'?'WETH':x.c,n:ch.n,q:x.q,pr:p,v});});
-    }));
+      if(res[0]&&!ch.skipNat&&(!ch.skipBase||wl.i>0)) items.push({c:'ETH',q:Number(BigInt(res[0]))/1e18});
+      tl.forEach((t,i)=>{const h=res[i+1]; if(!h||h==='0x') return; const q=Number(BigInt(h))/Math.pow(10,t.d); if(q>0) items.push({c:t.s,q});});
+      items.forEach(x=>{const sym=x.c.toUpperCase(), p=price(sym); const v=x.q*p; if(v>=0.01) out.push({c:x.c==='WETH'?'WETH':x.c,n:ch.n+(WL.length>1?' · '+wl.nome:''),q:x.q,pr:p,v});});
+    })));
     if(!okAny) return;
     live.wallAuto=out; live.wallExtraV=out.reduce((a,x)=>a+x.v,0);
     try{ window.__drawC&&window.__drawC(); }catch(e){}
@@ -5454,7 +5463,7 @@ function applyMods(){
   const m=getMods();
   let css=''; MODS.forEach(x=>{ if(!m[x[0]]) css+='.tabbtn[data-tab="'+x[0]+'"],.sb-item[data-tab="'+x[0]+'"]{display:none!important}'; });
   let st=$('mods-css'); if(!st){ st=document.createElement('style'); st.id='mods-css'; document.head.appendChild(st); } st.textContent=css+'.sec-off{display:none!important}';
-  HL.forEach(id=>{ const e=$(id), s=e&&e.closest('.section'); if(s) s.classList.toggle('sec-off',!m.hl||!m.aave); });
+  HL.forEach(id=>{ const e=$(id), s=e&&e.closest('.section'); if(s) s.classList.toggle('sec-off',!m.hl); });
   const act=document.querySelector('.tabbtn.active');
   if(act&&act.dataset.tab!=='overview'&&!m[act.dataset.tab]&&typeof switchTab==='function'){ switchTab('overview'); const sb=document.querySelector('.sb-item[data-tab="overview"]'); if(sb) sb.click(); }
 }
@@ -5462,7 +5471,7 @@ window.MODS_API={getMods,setMods,applyMods};
 const row=(k,t,d,on)=>'<label style="display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line,#333);border-radius:12px;margin-bottom:8px;cursor:pointer;background:var(--panel,#1b1b1b)"><input type="checkbox" data-m="'+k+'" '+(on?'checked':'')+' style="margin-top:3px;width:18px;height:18px;flex:none"><span><b style="font-size:14px">'+t+'</b><br><span style="font-size:12px;color:var(--text-dim,#9aa0a6)">'+d+'</span></span></label>';
 function modsHtml(){
   const m=getMods();
-  return MODS.map(x=>row(x[0],x[1],x[2],m[x[0]])).join('')+row('hl','Hyperliquid (dentro da Wallet Principal)','Short de dívida, Short Earn e Borrow Earn',m.hl);
+  return MODS.map(x=>row(x[0],x[1],x[2],m[x[0]])).join('')+row('hl','Hyperliquid','Short de dívida, Short Earn e Borrow Earn',m.hl);
 }
 function bind(box){
   box.querySelectorAll('input[data-m]').forEach(i=>i.onchange=()=>{ const m=getMods(); m[i.dataset.m]=i.checked?1:0; setMods(m); });
@@ -5478,11 +5487,11 @@ window.showSetup=function(edit){
   if(!hasSetup()&&!localStorage.getItem('dash:mods')){ setMods(getMods()); }
   _ss(edit);
   const er=$('su-er'); if(!er) return;
-  const d=document.createElement('div'); d.innerHTML='<div style="font-size:13px;color:var(--text-dim,#9aa0a6);margin:4px 0 8px">O que você quer acompanhar? (dá para mudar depois)</div>'+modsHtml();
+  const d=document.createElement('div'); d.innerHTML='<div style="font-size:17px;font-weight:600;color:var(--text,#eee);margin:6px 0 10px">O que você quer acompanhar?</div>'+modsHtml();
   er.parentNode.insertBefore(d,er); bind(d);
   if(!edit){
     const n=document.createElement('div'); n.style.cssText='font-size:12px;color:var(--text-faint,#777);margin-top:16px;line-height:1.5;text-align:center';
-    n.innerHTML='Seus dados ficam <b>só neste aparelho/navegador</b>, não vão para nenhum servidor. Faça backup de vez em quando (Visão Geral › Configurações avançadas).<br><label style="cursor:pointer;text-decoration:underline;display:inline-block;margin-top:10px">Já tenho um backup: importar<input type="file" id="su-imp" accept=".json,application/json" style="display:none"></label><div id="su-imp-er" style="color:#f87171;margin-top:6px"></div>';
+    n.innerHTML='Seus dados ficam <b>só neste aparelho/navegador</b>, não vão para nenhum servidor. Faça backup de vez em quando (Visão Geral › Configurações avançadas).<br><label style="cursor:pointer;text-decoration:underline;display:inline-block;margin-top:10px;font-size:16px;color:var(--text-dim,#9aa0a6)">Já tenho um backup: importar<input type="file" id="su-imp" accept=".json,application/json" style="display:none"></label><div id="su-imp-er" style="color:#f87171;margin-top:6px"></div>';
     er.parentNode.appendChild(n);
     $('su-imp').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const data=JSON.parse(await f.text()); const r=await fetch('/api/sheet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'import',data})}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'falha'); try{ localStorage.removeItem('dash:mods'); }catch(x){} location.reload(); }catch(x){ $('su-imp-er').textContent='Erro ao importar: '+x.message; } };
   }
@@ -5518,11 +5527,11 @@ function draw(){
   const sec=[...tab.querySelectorAll('.section')].find(s=>/Composi/.test((s.querySelector('h2')||{}).textContent||''));
   if(!sec) return;
   let c=$('aave-nets'); if(!c){ c=document.createElement('div'); c.id='aave-nets'; c.className='section'; sec.insertAdjacentElement('beforebegin',c); }
-  const rows=d.all.filter(x=>x.col>0||x.debt>0);
+  const rows=d.all.filter(x=>x.col>0||x.debt>0); const multi=new Set(d.all.map(x=>x.w)).size>1;
   const F=typeof fmtUSD==='function'?fmtUSD:(v=>'$'+v.toFixed(2));
   c.innerHTML='<h2>Aave por rede</h2><div class="section-body" style="display:block">'+(rows.length
-    ?'<div class="table-scroll"><table class="brw-tbl"><thead><tr><th>Rede</th><th>Garantia</th><th>Dívida</th><th>Health factor</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+x.n+'</td><td>'+F(x.col)+'</td><td>'+F(x.debt)+'</td><td>'+(x.debt>0&&isFinite(x.hf)?x.hf.toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table></div>'
-    :'<div class="note">Nenhuma posição na Aave encontrada neste endereço em: '+d.all.map(x=>x.n).join(', ')+'.</div>')
+    ?'<div class="table-scroll"><table class="brw-tbl"><thead><tr>'+(multi?'<th>Wallet</th>':'')+'<th>Rede</th><th>Garantia</th><th>Dívida</th><th>Health factor</th></tr></thead><tbody>'+rows.map(x=>'<tr>'+(multi?'<td>'+x.w+'</td>':'')+'<td>'+x.n+'</td><td>'+F(x.col)+'</td><td>'+F(x.debt)+'</td><td>'+(x.debt>0&&isFinite(x.hf)?x.hf.toFixed(2):'—')+'</td></tr>').join('')+'</tbody></table></div>'
+    :'<div class="note">Nenhuma posição na Aave encontrada neste endereço em: '+[...new Set(d.all.map(x=>x.n))].join(', ')+'.</div>')
     +(d.failed?'<div class="note">'+d.failed+' rede(s) não responderam agora; o total pode estar incompleto.</div>':'')+'</div>';
 }
 if(typeof computeAndRender==='function'){ const o=computeAndRender; computeAndRender=async function(){ const r=await o.apply(this,arguments); try{ draw(); }catch(e){} return r; }; }
@@ -5561,6 +5570,32 @@ function show(){
   $('ap0-n').onclick=()=>{ set(FLAG,'no'); b.remove(); };
 }
 const iv=setInterval(()=>{ tries++; try{ if(ready()){ clearInterval(iv); show(); } }catch(e){} if(tries>40||shown) clearInterval(iv); },1500);
+})();
+</script>
+<script id="wallets-js">
+(function(){
+const $=id=>document.getElementById(id);
+const OK=a=>/^0x[0-9a-fA-F]{40}$/.test(a||'');
+const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function getX(){ try{ return JSON.parse(localStorage.getItem('dash:wallets')||'[]')||[]; }catch(e){ return []; } }
+function setX(list){ const s=JSON.stringify(list); try{ localStorage.setItem('dash:wallets',s); }catch(e){} try{ const db=LOCALDB.load(); LOCALDB.cfgSet(db,'carteiras',s); LOCALDB.save(db); }catch(e){} window.__walletsDirty=1; }
+const IS='background:var(--panel,#1b1b1b);border:1px solid var(--line,#333);border-radius:12px;color:inherit;padding:12px;font-size:14px;box-sizing:border-box;';
+const _s=window.showSetup;
+window.showSetup=function(edit){
+  _s(edit);
+  const w=$('su-w'); if(!w) return;
+  const box=document.createElement('div'); box.id='sw-box'; box.style.cssText='margin:0 0 18px';
+  const rowHtml=(x)=>'<div class="sw-r" style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><input data-k="n" value="'+E(x.nome)+'" placeholder="Nome" autocomplete="off" style="'+IS+'flex:0 0 30%;min-width:0"><input data-k="a" value="'+E(x.addr)+'" placeholder="0x…" autocomplete="off" autocapitalize="off" spellcheck="false" style="'+IS+'flex:1;min-width:0;font-family:monospace"><button type="button" data-rm="1" style="background:none;border:none;color:var(--text-dim,#9aa0a6);font-size:20px;cursor:pointer;padding:4px 8px">✕</button></div>';
+  box.innerHTML='<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Outras wallets</label><div id="sw-rows" style="margin-top:6px">'+getX().map(rowHtml).join('')+'</div><button type="button" id="sw-add" style="background:none;border:1px dashed var(--line,#444);border-radius:12px;color:var(--text-dim,#9aa0a6);padding:11px 14px;font-size:14px;cursor:pointer;width:100%">+ Adicionar wallet</button><div id="sw-er" style="color:#f87171;font-size:12px;min-height:16px;margin-top:4px"></div>';
+  (w.nextElementSibling||w).insertAdjacentElement('afterend',box);
+  const rows=box.querySelector('#sw-rows');
+  const collect=()=>{ const list=[]; let bad=0; rows.querySelectorAll('.sw-r').forEach(r=>{ const n=r.querySelector('[data-k=n]').value.trim(), a=r.querySelector('[data-k=a]').value.trim(); const ai=r.querySelector('[data-k=a]'); const inv=a&&!OK(a); ai.style.borderColor=inv?'#f87171':''; if(inv) bad++; if(OK(a)) list.push({nome:n,addr:a}); }); $('sw-er').textContent=bad?'Endereço inválido: precisa ter 0x e 40 caracteres.':''; setX(list); };
+  rows.addEventListener('input',collect);
+  rows.addEventListener('click',e=>{ const b=e.target.closest('[data-rm]'); if(!b) return; b.closest('.sw-r').remove(); collect(); });
+  $('sw-add').onclick=()=>{ rows.insertAdjacentHTML('beforeend',rowHtml({nome:'',addr:''})); const l=rows.lastElementChild.querySelector('[data-k=n]'); if(l) l.focus(); };
+  const c=$('su-c'); if(c){ const oc=c.onclick; c.onclick=function(){ if(oc) oc.call(this); if(window.__walletsDirty){ window.__walletsDirty=0; location.reload(); } }; }
+};
+if($('setup-ov')) window.showSetup(!!$('su-c'));
 })();
 </script>
 </body>
