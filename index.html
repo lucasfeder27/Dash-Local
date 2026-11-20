@@ -3681,7 +3681,7 @@ function render(force){
   const empty=!c.fin&&!L('gMeses').length&&!L('gFixos').length&&!L('gVar').length&&!L('gPont').length&&!L('gParc').length;
   let h='';
   h+='<div class="g-top"><h2>Gastos</h2><div class="g-nav"><button data-g="prev" aria-label="Mês anterior">‹</button><div class="m">'+ml(MES)+'</div><button data-g="next" aria-label="Próximo mês">›</button></div></div>';
-  if(empty) h+='<div class="g-seed"><div><b>Trazer os dados da sua planilha</b><div class="g-muted" style="font-size:13px;margin-top:4px;">Coloca aqui seus gastos fixos, categorias, a renda de Out/26 e a parcela da moto. Você pode editar tudo depois.</div></div><button data-g="seed">Importar da planilha</button></div>';
+  if(false) h+='<div class="g-seed"><div><b>Trazer os dados da sua planilha</b><div class="g-muted" style="font-size:13px;margin-top:4px;">Coloca aqui seus gastos fixos, categorias, a renda de Out/26 e a parcela da moto. Você pode editar tudo depois.</div></div><button data-g="seed">Importar da planilha</button></div>';
   h+='<div class="g-cards">'
    +'<div class="stat"><div class="lbl">Renda do mês'+(rd.fin?'<button class="g-link" data-g="gofin">Finanças</button>':'<button class="g-link" data-g="renda">editar</button>')+'</div><div class="val">'+BRL(rd.v)+'</div><div class="sub">'+(rd.fin?'receitas da aba Finanças · recebido '+BRL(rd.rec):(rd.inh?'igual ao mês anterior':'definida para '+ml(MES)))+'</div></div>'
    +'<div class="stat"><div class="lbl">Total gasto</div><div class="val">'+BRL(c.total)+'</div><div class="sub">'+(c.pend>0?'faltam '+BRL(c.pend)+' de fixos a efetuar':'fixos + variáveis + pontuais + temporários')+'</div></div>'
@@ -4704,7 +4704,7 @@ function draw(force){
       h+='<div class="imb-grp"><div class="imb-gh"><b>'+E(g.cat)+'</b><span>'+USD(g.usd)+(tot>0?' · '+f2(g.usd/tot*100)+'%':'')+'</span></div><div class="g-tw"><table class="brw-tbl nol"><thead><tr><th>Item</th><th>Aquisição</th><th>Compra</th><th>Valor atual</th><th>Variação</th><th>Em '+(typeof currentCurrency!=='undefined'&&currentCurrency==='BRL'?'R$':'US$')+'</th><th>Obs</th><th></th></tr></thead><tbody>'
        +g.list.map(x=>{ const vv=x.c!=null?x.v-x.c:null; return '<tr><td><b>'+E(x.nome)+'</b></td><td>'+fdate(x.data)+'</td><td>'+(x.c!=null?cur(x.c,x.m):'--')+'</td><td><b>'+cur(x.v,x.m)+'</b></td><td>'+(vv==null?'--':'<span class="'+(vv>=0?'imb-pos':'imb-neg')+'">'+(vv>=0?'+':'−')+cur(Math.abs(vv),x.m)+'</span>')+'</td><td>'+USD(x.usd)+'</td><td class="o">'+E(x.obs||'')+'</td><td class="g-act"><button data-a="edit" data-r="'+x._row+'">editar</button><button class="rm" data-a="del" data-r="'+x._row+'">remover</button></td></tr>'; }).join('')
        +'</tbody></table></div></div>'; });
-  } else h+='<div class="note" style="margin-top:14px">Nenhum item ainda. Clique em "+ Adicionar item" (ex.: Moto, categoria Veículo, R$ 12.000).</div>';
+  } else h+='';
   root.innerHTML=h;
 }
 function fields(r){ return [
@@ -5074,7 +5074,7 @@ function home(){ const A=accounts(); const T=TX().filter(inM);
   h+='<div class="f-card"><div class="f-h" style="margin-top:0">Contas<button class="f-more" data-a="all" title="Todas as transações do mês">⤢</button></div>'
    +A.map(a=>{ const b=bal(a), p=bal(a,mend()); return '<div class="f-acc" data-a="'+(a.live?'wallet':'acct')+'" data-id="'+a.id+'">'+avatar(a)+'<div class="nm">'+E(a.nome)+(a.live?'<small>ao vivo · toque para abrir a Wallet Principal</small>':'')+'</div><div class="bl"><span class="'+(b<0?'neg':'')+'">'+(b==null?'—':brl(b))+'</span>'+(!a.live&&Math.abs((p||0)-(b||0))>0.004?'<small>Previsto<br>'+brl(p)+'</small>':'')+'</div>'+(a.live?'<button class="f-more" data-a="acct" data-id="'+a.id+'" title="Ver extrato">☰</button>'+((a.auto||a.aave)?'<button class="f-more" data-a="eacc" data-id="'+a.id+'">⋯</button>':''):'<button class="f-more" data-a="eacc" data-id="'+a.id+'">⋯</button>')+'</div>'; }).join('')
    +(A.length?'':'<div class="f-note" style="margin:8px 0 12px">Você ainda não tem contas. Crie a primeira: pode ser uma conta comum (banco, dinheiro), o saldo ao vivo da sua carteira cripto, ou as posições da Aave.</div>')+'<button class="f-add" data-a="nacc">+ Nova conta</button><button class="f-add" data-a="cats" data-k="despesa" style="margin-left:8px">Editar categorias</button></div>'
-   +'<div class="f-note">Saldo = soma das suas contas. Se você adicionar as contas “Aave · Supply” e “Aave · Borrow”, elas vêm da Aave em tempo real e as transferências de/para elas não duplicam o saldo.</div></div></div>';
+   +'</div></div>';
   return h; }
 function extrato(){ const all=V.m==='all', a=all?null:accById(V.id); if(!all&&!a){ V={m:'home'}; return home(); }
   const L=items(all?null:a.id); const b=all?null:bal(a);
@@ -5746,7 +5746,7 @@ window.showSetup=function(edit){
   const rowHtml=x=>'<div class="nv-r" style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select data-k="r" style="'+IS+'flex:0 0 28%;min-width:0"><option value="btc"'+(x.rede!=='sol'?' selected':'')+'>BTC</option><option value="sol"'+(x.rede==='sol'?' selected':'')+'>Solana</option></select><input data-k="a" value="'+E(x.addr)+'" placeholder="Endereço" autocomplete="off" autocapitalize="off" spellcheck="false" style="'+IS+'flex:1;min-width:0;font-family:monospace;font-size:13px"><button type="button" data-rm="1" style="background:none;border:none;color:var(--text-faint,#6b7280);font-size:20px;cursor:pointer;padding:0 4px">×</button></div>';
   const box=document.createElement('div'); box.id='nv-box'; box.style.cssText='margin:0 0 18px';
   box.innerHTML='<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Bitcoin e Solana</label><div id="nv-rows" style="margin-top:6px">'+getN().map(rowHtml).join('')+'</div><button type="button" id="nv-add" style="background:none;border:1px dashed var(--line,#333);color:var(--text-dim,#9aa0a6);border-radius:12px;padding:12px;width:100%;font-size:15px;cursor:pointer">+ Adicionar endereço BTC ou Solana</button><div style="font-size:12px;color:var(--text-faint,#6b7280);margin-top:6px">Só o endereço público (BTC começa com bc1, 1 ou 3). Soma tudo na Visão Geral.</div>';
-  const anchor=$('sw-box')||(w.nextElementSibling||w); anchor.insertAdjacentElement('afterend',box);
+  const anchor=(w.nextElementSibling||w); anchor.insertAdjacentElement('afterend',box);
   const rows=box.querySelector('#nv-rows');
   const collect=()=>{ const list=[]; rows.querySelectorAll('.nv-r').forEach(r=>{ const rd=r.querySelector('[data-k=r]').value, ai=r.querySelector('[data-k=a]'), a=ai.value.trim(); const bad=a&&!OKR(rd,a); ai.style.borderColor=bad?'#f87171':''; if(a&&!bad) list.push({nome:'',rede:rd,addr:a}); }); setN(list); };
   rows.addEventListener('input',collect); rows.addEventListener('change',collect);
@@ -5791,6 +5791,70 @@ window.showSetup=function(edit){
   card.appendChild(d); d.querySelector('#rs-open').onclick=confirmBox;
 };
 if($('setup-ov')&&$('su-c')) window.showSetup(true);
+})();
+</script>
+<style id="ui3-css">
+/* ===== tom mais cinza e sutil ===== */
+html[data-theme="light"]{--text:#2d3036;--text-dim:#666b75;--text-faint:#9096a0;--accent:#5b616c;--ch1:#6b7280;--ch2:#a3a8b2;--ch3:#d6d9df;--line:#ececef;--line-strong:#e0e2e7;}
+html[data-theme="light"] #ov-total-card{background:#fff !important;border-color:var(--line) !important;color:var(--text) !important;}
+html[data-theme="light"] #ov-total-card .lbl{color:var(--text-faint) !important;}
+html[data-theme="light"] #ov-total-card .val,html[data-theme="light"] #ov-total-card .val *{color:var(--text) !important;}
+html[data-theme="light"] #ov-total-card .sub{color:var(--text-dim) !important;border-top-color:var(--line) !important;}
+html[data-theme="light"] #ov-total-card .btc-r .l{color:var(--text-faint) !important;}
+html[data-theme="light"] #ov-total-card .btc-r .v{color:var(--btc) !important;}
+html[data-theme="light"] .subtab.active{background:#eef0f3 !important;border-color:#dfe2e7 !important;color:#2d3036 !important;}
+html[data-theme="light"] .perf-seg button.on,html[data-theme="light"] .evo-seg button.on{background:#e9ebef !important;color:#2d3036 !important;}
+html[data-theme="light"] .tabbtn.active{border-bottom-color:#8b919c;}
+html:not([data-theme="light"]):not([data-theme="game"]){--bg:#17181b;--panel:#1e1f23;--panel-2:#25272c;--line:#2d2f35;--line-strong:#3a3d44;--text:#ececee;--text-dim:#a4a7ae;--text-faint:#7d818a;}
+/* ===== aba Configurações ===== */
+#tab-cfg h2.cfg-h{margin:0 0 4px;font-size:22px;font-weight:600;}
+#tab-cfg .cfg-sub{color:var(--text-faint);font-size:13px;margin-bottom:20px;}
+#tab-cfg .cfg-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px;}
+#tab-cfg .cfg-card h3{margin:0 0 4px;font-size:15px;font-weight:600;}
+#tab-cfg #adv-section{margin:0;}
+#tab-cfg #adv-section > h2.toggle{display:none !important;}
+#tab-cfg #adv-section > .section-body{display:block !important;max-height:none !important;opacity:1 !important;}
+/* ===== rodapé de status em ⓘ ===== */
+#wp-info{margin:18px 0 8px;font-size:13px;color:var(--text-faint);}
+#wp-info > summary{cursor:pointer;display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:999px;list-style:none;}
+#wp-info > summary::-webkit-details-marker{display:none;}
+#wp-info.wp-err > summary{color:var(--red);border-color:var(--red);}
+#wp-info[open] > summary{margin-bottom:10px;}
+</style>
+<script id="ui3-js">
+(function(){
+const $=id=>document.getElementById(id);
+// ---- rodapé de status vira ⓘ (se o painel ainda não fez isso) ----
+function info(){
+  if($('wp-info')) return;
+  const rpc=$('rpc-status'), sh=$('sheet-status'), nt=sh&&sh.nextElementSibling;
+  if(!(rpc&&sh&&nt)) return;
+  const d=document.createElement('details'); d.id='wp-info'; d.innerHTML='<summary>ⓘ Fontes e status</summary>';
+  rpc.insertAdjacentElement('beforebegin',d); d.appendChild(rpc); d.appendChild(sh); d.appendChild(nt);
+  const mark=()=>d.classList.toggle('wp-err',/^erro/i.test((rpc.textContent||'').trim()));
+  setInterval(mark,3000); mark();
+}
+// ---- aba Configurações ----
+let tries=0;
+function cfg(){
+  const last=[...document.querySelectorAll('.tab-panel')].pop();
+  const sb=$('sidebar'), foot=sb&&sb.querySelector('.sb-foot'), row=document.querySelector('.tabbtn[data-tab="imob"]')||document.querySelector('.tabbtn');
+  if(!last||!sb||!foot||!row){ if(++tries<30) setTimeout(cfg,200); return; }
+  if($('tab-cfg')) return;
+  const panel=document.createElement('div'); panel.className='tab-panel'; panel.id='tab-cfg';
+  panel.innerHTML='<h2 class="cfg-h">Configurações</h2><div class="cfg-sub">Perfil, módulos, backup e segurança.</div><div id="cfg-prof"></div><div id="cfg-adv"></div>';
+  last.insertAdjacentElement('afterend',panel);
+  const bp=$('btn-setup');
+  if(bp){ const c=document.createElement('div'); c.className='cfg-card'; c.innerHTML='<h3>Perfil</h3><div class="cfg-sub" style="margin:0 0 12px">Seu nome e suas carteiras.</div>'; bp.textContent='Editar perfil'; c.appendChild(bp); $('cfg-prof').appendChild(c); }
+  const adv=$('adv-section'); if(adv){ const body=adv.querySelector(':scope > .section-body'); if(body) body.classList.add('open'); $('cfg-adv').appendChild(adv); }
+  const tb=document.createElement('button'); tb.className='tabbtn'; tb.dataset.tab='cfg'; tb.textContent='Configurações'; tb.onclick=()=>switchTab('cfg'); row.parentElement.appendChild(tb);
+  const si=document.createElement('button'); si.className='sb-item'; si.dataset.tab='cfg'; si.textContent='Configurações';
+  si.onclick=()=>{ tb.click(); si.classList.add('active'); window.scrollTo(0,0); };
+  foot.insertAdjacentElement('beforebegin',si);
+  new MutationObserver(()=>si.classList.toggle('active',tb.classList.contains('active'))).observe(tb,{attributes:true,attributeFilter:['class']});
+  try{ if(localStorage.getItem('dash:last-tab')==='cfg') switchTab('cfg'); }catch(e){}
+}
+info(); setTimeout(info,1500); cfg();
 })();
 </script>
 </body>
