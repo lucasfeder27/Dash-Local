@@ -5481,7 +5481,7 @@ function bind(box){
 // 1) em Configurações avançadas
 (function(){ const sec=$('adv-section'); if(!sec) return; const body=sec.querySelector('.section-body'); if(!body) return;
   const d=document.createElement('div'); d.style.marginBottom='18px';
-  d.innerHTML='<div style="font-weight:600;margin-bottom:4px">Módulos (abas)</div><div class="note" style="margin-bottom:10px">Ligue só o que você usa. Desligar apenas esconde a aba, nada é apagado.</div><div id="mods-box">'+modsHtml()+'</div>';
+  d.innerHTML='<details id="mods-det"><summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;font-weight:600;padding:12px 14px;border:1px solid var(--line,#333);border-radius:12px;background:var(--panel,#1b1b1b)"><span>Módulos (abas)</span><span class="mods-chev" style="color:var(--text-faint,#888);font-size:13px">▸</span></summary><div id="mods-box" style="margin-top:10px">'+modsHtml()+'</div></details><style>#mods-det>summary::-webkit-details-marker{display:none}#mods-det[open] .mods-chev{display:inline-block;transform:rotate(90deg)}</style>';
   body.insertBefore(d,body.firstChild); bind(d); })();
 // 2) na tela de boas-vindas / perfil
 const _ss=window.showSetup;
