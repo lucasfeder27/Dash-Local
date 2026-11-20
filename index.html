@@ -2438,7 +2438,7 @@ function showSetup(edit){
   const o=document.createElement('div'); o.id='setup-ov'; o.style.cssText='position:fixed;inset:0;z-index:100010;background:var(--bg,#0b0b0b);color:var(--text,#eee);display:flex;justify-content:center;padding:20px;overflow:auto';
   o.innerHTML='<div style="width:100%;max-width:440px;margin:auto"><h2 style="margin:0 0 6px;font-size:24px">'+(edit?'Configurações':'Bem-vindo!')+'</h2><p style="color:var(--text-dim,#9aa0a6);margin:0 0 22px;line-height:1.5">'+(edit?'Altere seus dados abaixo.':'Vamos configurar seu painel.')+'</p>'
    +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Seu nome</label><input id="su-n" value="'+String(cur.nome||'').replace(/"/g,'&quot;')+'" placeholder="" autocomplete="off" style="width:100%;box-sizing:border-box;margin:6px 0 16px;padding:13px 14px;font-size:16px;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
-   +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Endereço da wallet</label><input id="su-w" value="'+String(cur.wallet||'')+'" placeholder="0x…" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin:6px 0 6px;padding:13px 14px;font-size:14px;font-family:monospace;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
+   +'<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Rede EVM</label><input id="su-w" value="'+String(cur.wallet||'')+'" placeholder="0x…" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin:6px 0 6px;padding:13px 14px;font-size:14px;font-family:monospace;border-radius:12px;border:1px solid var(--line,#333);background:var(--panel,#1b1b1b);color:inherit">'
    +'<div style="margin-bottom:18px"></div><div id="su-er" style="color:#f87171;font-size:13px;min-height:18px;margin-bottom:8px"></div>'
    +'<div style="display:flex;gap:10px"><button id="su-s" style="flex:1;padding:14px;font-size:16px;font-weight:600;border:none;border-radius:999px;background:var(--accent,#ff8a1f);color:#111;cursor:pointer">Salvar</button>'+(edit?'<button id="su-c" style="padding:14px 20px;font-size:16px;border-radius:999px;border:1px solid var(--line,#333);background:none;color:inherit;cursor:pointer">Cancelar</button>':'')+'</div></div>';
   document.body.appendChild(o);
@@ -2682,7 +2682,7 @@ sec.innerHTML='<h2 class="toggle" onclick="toggleSection(this)">⚙ Configuraç�
  +'<div class="section-body">'
  +'<div style="margin-bottom:16px"><div id="adv-sec" style="display:flex;gap:8px;flex-wrap:wrap"></div><div class="note">Escolha acima quais abas (módulos) aparecem no seu painel. Os seus dados ficam guardados <b>neste navegador</b>: faça backup de vez em quando.</div></div>'
  +'<div style="margin-bottom:16px"><div id="adv-bk"></div><div class="note">Baixa uma cópia de todos os seus dados (arquivo .json). Faça de vez em quando, por exemplo 1 vez por mês, e guarde o arquivo. No dia a dia você não precisa usar.</div></div>'
- +'<div><div id="adv-imp"></div><div class="note"><b>Só para restaurar uma cópia.</b> Substitui TODOS os dados do site pelos do arquivo escolhido. Você não precisa disso para lançar nada: os lançamentos são feitos direto nos formulários, no computador ou no celular.</div></div>'
+ +'<div><div id="adv-imp"></div></div>'
  +'</div>';
 if(bk) sec.querySelector('#adv-bk').appendChild(bk);
 { const cp=$('btn-chpw'), fb=$('btn-fid-cfg'), box=sec.querySelector('#adv-sec'); if(cp) box.appendChild(cp); if(fb) box.appendChild(fb); }
@@ -2690,7 +2690,7 @@ if(lab) sec.querySelector('#adv-imp').appendChild(lab);
 if(old) old.style.display='none';
 const rep=$('report-box')&&$('report-box').closest('.section');
 if($('tab-overview')) $('tab-overview').appendChild(sec); else if(rep) rep.insertAdjacentElement('afterend',sec);
-sec.querySelector('.section-body').insertAdjacentHTML('beforeend','<div class="note" style="margin-top:10px">Versão do site: obs-2 (23/10/2026)</div>');
+
 
 // 2) Compras de BTC: formulário atrás de um botão
 const bc=$('btn-add-compra'), cf=bc&&bc.closest('.add-form');
@@ -5745,9 +5745,14 @@ window.showSetup=function(edit){
   const w=$('su-w'); if(!w||$('nv-box')) return;
   const rowHtml=x=>'<div class="nv-r" style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select data-k="r" style="'+IS+'flex:0 0 28%;min-width:0"><option value="btc"'+(x.rede!=='sol'?' selected':'')+'>BTC</option><option value="sol"'+(x.rede==='sol'?' selected':'')+'>Solana</option></select><input data-k="a" value="'+E(x.addr)+'" placeholder="Endereço" autocomplete="off" autocapitalize="off" spellcheck="false" style="'+IS+'flex:1;min-width:0;font-family:monospace;font-size:13px"><button type="button" data-rm="1" style="background:none;border:none;color:var(--text-faint,#6b7280);font-size:20px;cursor:pointer;padding:0 4px">×</button></div>';
   const box=document.createElement('div'); box.id='nv-box'; box.style.cssText='margin:0 0 18px';
-  box.innerHTML='<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Bitcoin e Solana</label><div id="nv-rows" style="margin-top:6px">'+getN().map(rowHtml).join('')+'</div><button type="button" id="nv-add" style="background:none;border:1px dashed var(--line,#333);color:var(--text-dim,#9aa0a6);border-radius:12px;padding:12px;width:100%;font-size:15px;cursor:pointer">+ Adicionar endereço BTC ou Solana</button><div style="font-size:12px;color:var(--text-faint,#6b7280);margin-top:6px">Só o endereço público (BTC começa com bc1, 1 ou 3). Soma tudo na Visão Geral.</div>';
+  box.innerHTML='<button type="button" id="nv-tg" style="background:none;border:1px dashed var(--line,#333);color:var(--text-dim,#9aa0a6);border-radius:12px;padding:12px;width:100%;font-size:15px;cursor:pointer">Outras redes (BTC, Solana) ▸</button><div id="nv-wrap" style="display:none;margin-top:10px"><div id="nv-rows">'+getN().map(rowHtml).join('')+'</div><button type="button" id="nv-add" style="background:none;border:1px dashed var(--line,#333);color:var(--text-dim,#9aa0a6);border-radius:12px;padding:12px;width:100%;font-size:15px;cursor:pointer">+ Adicionar endereço BTC ou Solana</button></div>';
   const anchor=(w.nextElementSibling||w); anchor.insertAdjacentElement('afterend',box);
   const rows=box.querySelector('#nv-rows');
+  let touched=false; const wrap=box.querySelector('#nv-wrap'), tg=box.querySelector('#nv-tg');
+  const showW=v=>{ wrap.style.display=v?'':'none'; tg.textContent=tg.textContent.replace(/[▸▾]/,v?'▾':'▸'); };
+  tg.onclick=()=>{ touched=true; showW(wrap.style.display==='none'); };
+  const autoOpen=()=>{ if(!touched&&rows.querySelector('.nv-r')) showW(true); };
+  autoOpen(); setTimeout(autoOpen,3200);
   const collect=()=>{ const list=[]; rows.querySelectorAll('.nv-r').forEach(r=>{ const rd=r.querySelector('[data-k=r]').value, ai=r.querySelector('[data-k=a]'), a=ai.value.trim(); const bad=a&&!OKR(rd,a); ai.style.borderColor=bad?'#f87171':''; if(a&&!bad) list.push({nome:'',rede:rd,addr:a}); }); setN(list); };
   rows.addEventListener('input',collect); rows.addEventListener('change',collect);
   rows.addEventListener('click',e=>{ const b=e.target.closest('[data-rm]'); if(!b) return; b.closest('.nv-r').remove(); collect(); });
@@ -5842,7 +5847,7 @@ function cfg(){
   if(!last||!sb||!foot||!row){ if(++tries<30) setTimeout(cfg,200); return; }
   if($('tab-cfg')) return;
   const panel=document.createElement('div'); panel.className='tab-panel'; panel.id='tab-cfg';
-  panel.innerHTML='<h2 class="cfg-h">Configurações</h2><div class="cfg-sub">Perfil, módulos, backup e segurança.</div><div id="cfg-prof"></div><div id="cfg-adv"></div>';
+  panel.innerHTML='<h2 class="cfg-h">Configurações</h2><div id="cfg-prof"></div><div id="cfg-adv"></div>';
   last.insertAdjacentElement('afterend',panel);
   const bp=$('btn-setup');
   if(bp){ const c=document.createElement('div'); c.className='cfg-card'; c.innerHTML='<h3>Perfil</h3><div class="cfg-sub" style="margin:0 0 12px">Seu nome e suas carteiras.</div>'; bp.textContent='Editar perfil'; c.appendChild(bp); $('cfg-prof').appendChild(c); }
