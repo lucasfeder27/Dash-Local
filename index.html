@@ -9,7 +9,7 @@
 const COLLECTIONS = [
   'aportes', 'saques', 'compras', 'vendas', 'repays', 'emprestimos', 'wallet', 'historico',
   'trades', 'opcoes', 'aportesM', 'saquesM', 'walletM', 'airdrops', 'acoes', 'notas', 'comprasM',
-  'gMeses', 'gFixos', 'gVar', 'gParc', 'gCats', 'gPont', 'bEarn', 'sDiv', 'sEarn', 'cfg', 'hlPos', 'acoesL', 'imob', 'fContas', 'fCats', 'fTx'
+  'gMeses', 'gFixos', 'gVar', 'gParc', 'gCats', 'gPont', 'bEarn', 'sDiv', 'sEarn', 'cfg', 'hlPos', 'acoesL', 'imob', 'fContas', 'fCats', 'fTx', 'protocolos'
 ];
 
 // Nome da "aba" (como o dashboard fala) -> coleção
@@ -24,7 +24,7 @@ const SHEETS = {
   'gastos renda': 'gMeses', 'gastos fixos': 'gFixos', 'gastos variaveis': 'gVar',
   'gastos parcelas': 'gParc', 'gastos categorias': 'gCats', 'gastos pontuais': 'gPont',
   'borrow earn': 'bEarn',
-  'short divida': 'sDiv', 'short earn': 'sEarn', 'config': 'cfg', 'hyperliquid posicoes': 'hlPos', 'acoes lancamentos': 'acoesL', 'imobilizado': 'imob', 'fin contas': 'fContas', 'fin categorias': 'fCats', 'fin lancamentos': 'fTx'
+  'short divida': 'sDiv', 'short earn': 'sEarn', 'config': 'cfg', 'hyperliquid posicoes': 'hlPos', 'acoes lancamentos': 'acoesL', 'imobilizado': 'imob', 'fin contas': 'fContas', 'fin categorias': 'fCats', 'fin lancamentos': 'fTx', 'protocolos': 'protocolos'
 };
 
 // Ordem das colunas usada pelo dashboard em "update" (values é uma lista por posição)
@@ -435,6 +435,7 @@ try{
     <button class="tabbtn" data-tab="gastos">Gastos</button>
     <button class="tabbtn" data-tab="fin">Finanças</button>
     <button class="tabbtn" data-tab="imob">Imobilizado</button>
+    <button class="tabbtn" data-tab="proto">Outros protocolos</button>
   </div>
 
   <div class="tab-panel" id="tab-overview">
@@ -940,6 +941,7 @@ try{
   <div class="tab-panel" id="tab-gastos"><div id="gst-root"></div></div>
   <div class="tab-panel" id="tab-fin"></div>
   <div class="tab-panel" id="tab-imob"></div>
+  <div class="tab-panel" id="tab-proto"></div>
 
   <div class="tab-panel" id="tab-acoes">
   <div class="section">
@@ -1462,7 +1464,7 @@ async function computeAndRender(){
   const ethValue = live.walletEth * (live.ethPrice || 0);
   const hypeQty = walletRows.filter(w => String(w.moeda||'').toLowerCase().includes('hype')).reduce((s,w)=>s+(Number(w.qtd)||0),0);
   const hypeValue = hypeQty * (live.hypePrice || 0);
-  const patrimonioTotal = aave.totalCollateralBase + live.walletUsdc + ethValue + hypeValue + live.walletAltcoins + (live.hlOthers||0) + (live.wallExtraV||0);
+  const patrimonioTotal = aave.totalCollateralBase + live.walletUsdc + ethValue + hypeValue + live.walletAltcoins + (live.hlOthers||0) + (live.wallExtraV||0) + (live.protoUsd||0);
   document.getElementById('wallet-eth').textContent = live.walletEth.toFixed(6) + ' (' + fmtUSD(ethValue) + ')';
   document.getElementById('wallet-hype').textContent = hypeQty>0 ? (hypeQty.toFixed(4) + ' (' + fmtUSD(hypeValue) + ')') : '--';
   document.getElementById('wallet-altcoins').textContent = fmtUSD(live.walletAltcoins);
@@ -1522,7 +1524,7 @@ async function computeAndRender(){
   } else if(missing>0){
     vsBtcEl.textContent = 'calculando… (faltam '+missing+' preços)';
   } else { vsBtcEl.textContent = 'calculando…'; }
-  renderDonut(aave.totalCollateralBase, live.walletUsdc + ethValue + hypeValue + live.walletAltcoins + (live.wallExtraV||0));
+  renderDonut(aave.totalCollateralBase, live.walletUsdc + ethValue + hypeValue + live.walletAltcoins + (live.wallExtraV||0) + (live.protoUsd||0));
   renderTrades();
   const liquidoM = renderExtra();
   const resultadoCorretora = (state.trades||[]).filter(t=>t.status==='Fechado').reduce((s,t)=>s+(Number(t.resultado)||0),0);
@@ -2861,7 +2863,7 @@ if(altb){const sec=document.createElement('div'); sec.className='section';
   sec.querySelector('.section-body').appendChild(altb);
   const w=$('wallet-eth'), ws=w&&w.closest('.section'); if(ws) ws.insertAdjacentElement('afterend',sec);}
 // barra lateral
-const ORDER=[['overview','Visão Geral'],['aave','Wallet Principal'],['extra','Wallet Extra'],['corretora','Trades'],['acoes','Ações'],['gastos','Gastos'],['fin','Finanças'],['imob','Imobilizado']];
+const ORDER=[['overview','Visão Geral'],['aave','Wallet Principal'],['extra','Wallet Extra'],['corretora','Trades'],['acoes','Ações'],['gastos','Gastos'],['fin','Finanças'],['imob','Imobilizado'],['proto','Outros protocolos']];
 const sb=document.createElement('nav'); sb.id='sidebar';
 sb.innerHTML='<div class="sb-brand">PAINEL</div><div class="sb-title">Dash Invest</div>'+ORDER.map(o=>'<button class="sb-item" data-tab="'+o[0]+'">'+o[1]+'</button>').join('')+'<div class="sb-foot"><button class="sb-theme" id="sb-theme"></button></div>';
 wrap.insertBefore(sb,wrap.firstChild);
@@ -5020,7 +5022,7 @@ const accById=id=>accounts().find(a=>a.id===id);
 const imgOf=a=>(a&&(a.img||AV[a.id]))||'';
 const avatar=(a,sz)=>{ const im=imgOf(a); return '<span class="f-av" style="background-color:'+a.cor+(im?';background-image:url('+im+')':'')+(sz?';width:'+sz+'px;height:'+sz+'px;font-size:'+Math.round(sz*.45)+'px':'')+'">'+(im?'':E(a.ic||a.nome.charAt(0)))+'</span>'; };
 const accName=id=>{const a=accById(id); return a?a.nome:'(conta removida)';};
-function liveBal(a){ if(typeof live==='undefined'||!live.aave) return null; if(a.live==='wallet') return (typeof window.__walletFreeUsd==='number'?window.__walletFreeUsd:Math.max(0,((live.pTotalNum||0)-(live.aave.totalCollateralBase||0)-(live.hlOthers||0))))*fx(); return a.live==='borrow'?-(live.aave.totalDebtBase||0)*fx():(live.aave.totalCollateralBase||0)*fx(); }
+function liveBal(a){ if(typeof live==='undefined'||!live.aave) return null; if(a.live==='wallet') return (typeof window.__walletFreeUsd==='number'?window.__walletFreeUsd:Math.max(0,((live.pTotalNum||0)-(live.aave.totalCollateralBase||0)-(live.hlOthers||0)-(live.protoUsd||0))))*fx(); return a.live==='borrow'?-(live.aave.totalDebtBase||0)*fx():(live.aave.totalCollateralBase||0)*fx(); }
 function eff(t,id){ const v=+t.valor||0; if(t.tipo==='receita') return t.conta===id?v:0; if(t.tipo==='despesa') return t.conta===id?-v:0; if(t.tipo==='transf') return (t.origem===id?-v:0)+(t.destino===id?v:0); return 0; }
 const isEf=t=>String(t.ef)==='1'||t.ef===1||t.ef===true;
 function bal(a,monthEnd){ if(a.live) return liveBal(a); let s=a.ini||0; TX().forEach(t=>{ const e=eff(t,a.id); if(!e) return; if(isEf(t)||(monthEnd&&t.data<=monthEnd)) s+=e; }); return s; }
@@ -5445,7 +5447,7 @@ $('btn-chpw').onclick=chpwDialog; fidBtn();
 <script id="mods-js">
 (function(){
 const $=id=>document.getElementById(id);
-const MODS=[['aave','Wallet Principal','Aave, carteira, BTC e altcoins'],['extra','Wallet Extra','Uma segunda carteira separada'],['corretora','Trades','Operações em corretora'],['acoes','Ações','Ações, FIIs e dividendos'],['gastos','Gastos','Gastos do mês, fixos e parcelas'],['fin','Finanças','Contas, lançamentos e categorias'],['imob','Imobilizado','Bens e imóveis']];
+const MODS=[['aave','Wallet Principal','Aave, carteira, BTC e altcoins'],['extra','Wallet Extra','Uma segunda carteira separada'],['corretora','Trades','Operações em corretora'],['acoes','Ações','Ações, FIIs e dividendos'],['gastos','Gastos','Gastos do mês, fixos e parcelas'],['fin','Finanças','Contas, lançamentos e categorias'],['imob','Imobilizado','Bens e imóveis'],['proto','Outros protocolos','Posições em Morpho, Pendle, Lido e outros']];
 const HL=['sd-body','se-body','be-body'];
 const ALL=()=>{ const m={hl:1}; MODS.forEach(x=>m[x[0]]=1); return m; };
 const hasSetup=()=>{ try{ const s=JSON.parse(localStorage.getItem('dash:setup')||'null'); return !!(s&&s.nome); }catch(e){ return false; } };
@@ -5596,6 +5598,199 @@ window.showSetup=function(edit){
   const c=$('su-c'); if(c){ const oc=c.onclick; c.onclick=function(){ if(oc) oc.call(this); if(window.__walletsDirty){ window.__walletsDirty=0; location.reload(); } }; }
 };
 if($('setup-ov')) window.showSetup(!!$('su-c'));
+})();
+</script>
+<style id="prt-css">
+#prt-root{padding-bottom:40px;min-width:0;max-width:100%;}
+#prt-root .imb-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+#prt-root .imb-top h2{margin:0;}
+#prt-root .imb-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0 18px;}
+#prt-root .imb-c{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-width:0;}
+#prt-root .imb-c .l{font-size:12.5px;color:var(--text-faint);margin-bottom:8px;}
+#prt-root .imb-c .v{font-size:24px;font-weight:300;letter-spacing:-.01em;white-space:nowrap;}
+#prt-root .imb-c .s{font-size:12px;color:var(--text-faint);margin-top:6px;}
+#prt-root .imb-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--panel-2);margin:6px 0 14px;}
+#prt-root .imb-bar i{display:block;height:100%;}
+#prt-root .imb-leg{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:20px;font-size:13px;}
+#prt-root .imb-leg span{display:inline-flex;align-items:center;gap:7px;color:var(--text-dim);}
+#prt-root .imb-leg i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+#prt-root .imb-grp{margin-bottom:22px;}
+#prt-root .imb-gh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap;}
+#prt-root .imb-gh b{font-size:15px;font-weight:600;}
+#prt-root .imb-gh span{font-size:13px;color:var(--text-dim);}
+#prt-root .g-tw{overflow-x:auto;max-width:100%;}
+#prt-root table.nol td::before{display:none !important;}
+#prt-root .brw-tbl td{white-space:nowrap;}
+#prt-root .brw-tbl td.o{white-space:normal;color:var(--text-dim);}
+#prt-root .g-act button{padding:5px 10px;}
+#prt-root .imb-pos{color:var(--green);}#prt-root .imb-neg{color:var(--red);}
+@media (max-width:860px){#prt-root .imb-cards{grid-template-columns:repeat(2,minmax(0,1fr));}#prt-root .imb-c .v{font-size:clamp(17px,5vw,22px);}}
+</style>
+<script id="prt-js">
+(function(){
+const $=id=>document.getElementById(id);
+const tab=$('tab-proto'); if(!tab||!window.__modal) return;
+const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const USD=n=>fmtUSD(+n||0);
+const numIn=v=>{const s=String(v==null?'':v).trim(); if(s==='') return 0; if(/,/.test(s)) return parseFloat(s.replace(/\./g,'').replace(',','.'))||0; if(/^\d{1,3}(\.\d{3})+$/.test(s)) return parseFloat(s.replace(/\./g,''))||0; return parseFloat(s)||0;};
+const dec=v=>(v==null||v==='')?'':String(v).replace('.',',');
+const today=()=>{const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const fdate=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?m[3]+'/'+m[2]+'/'+m[1].slice(2):'';};
+const f2=n=>(+n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const PROTS=['Aave','Morpho','Compound','Pendle','Lido','Rocket Pool','EtherFi','Ethena','Uniswap','Aerodrome','Curve','Kamino','Jupiter','Hyperliquid','Binance Earn'];
+const TIPOS=['Supply / empréstimo','Staking','Liquidez (LP)','Farm','Vault','Outro'];
+const PAL=['#ff7a1a','#60a5fa','#ffc94d','#3ddc84','#F472B6','#a78bfa','#f87171','#34d399'];
+const LST=()=>(window.RAWX&&window.RAWX.protocolos)||[];
+const items=()=>LST().filter(r=>r.protocolo||r.valor).map(r=>({_row:r._row,prot:String(r.protocolo||'Outro').trim()||'Outro',ativo:r.ativo||'',tipo:r.tipo||'',wallet:r.wallet||'',usd:+r.valor||0,apy:(r.apy===''||r.apy==null)?null:+r.apy,data:r.data||'',obs:r.obs||''}));
+const sumNow=()=>items().reduce((a,x)=>a+x.usd,0);
+async function post(o){ const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'x-dash-key':SCRIPT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(o)}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'erro'); return j; }
+const root=document.createElement('div'); root.id='prt-root'; tab.appendChild(root);
+let SIG='';
+function draw(force){
+  const its=items(); const sig=JSON.stringify([its,(typeof currentCurrency!=='undefined'?currentCurrency:''),live&&live.pTotalNum]); if(!force&&sig===SIG) return; SIG=sig;
+  const tot=its.reduce((a,x)=>a+x.usd,0), pat=(live&&live.pTotalNum)||0;
+  const wy=its.filter(x=>x.apy!=null&&x.usd>0), ywr=wy.reduce((a,x)=>a+x.usd*x.apy/100,0), ybase=wy.reduce((a,x)=>a+x.usd,0);
+  const by={}; its.forEach(x=>{(by[x.prot]||(by[x.prot]={prot:x.prot,usd:0,list:[]})); by[x.prot].usd+=x.usd; by[x.prot].list.push(x);});
+  const gr=Object.values(by).sort((a,b)=>b.usd-a.usd);
+  let h='<div class="imb-top"><h2>Outros protocolos</h2><button class="add-trigger" data-a="add" style="margin:0">+ Adicionar posição</button></div><div class="note">Posições em protocolos que o painel não lê sozinho (Morpho, Pendle, Lido, LPs...). Você informa o valor, e ele entra no seu patrimônio total. Atualize o valor de vez em quando em "editar". Aave e Hyperliquid são lidos automaticamente na Wallet Principal.</div>';
+  h+='<div class="imb-cards"><div class="imb-c"><div class="l">Total em protocolos</div><div class="v">'+USD(tot)+'</div><div class="s">'+its.length+(its.length===1?' posição':' posições')+' · '+gr.length+(gr.length===1?' protocolo':' protocolos')+'</div></div>'
+   +'<div class="imb-c"><div class="l">% do patrimônio</div><div class="v">'+(pat>0?f2(tot/pat*100)+'%':'--')+'</div><div class="s">'+(pat>0?'de '+USD(pat):'aguardando dados ao vivo')+'</div></div>'
+   +'<div class="imb-c"><div class="l">Rendimento estimado / ano</div><div class="v">'+(wy.length?USD(ywr):'--')+'</div><div class="s">'+(wy.length?'média '+f2(ybase>0?ywr/ybase*100:0)+'% a.a. nas posições com APY':'preencha o APY nas posições')+'</div></div>'
+   +'<div class="imb-c"><div class="l">Maior protocolo</div><div class="v">'+(gr.length?E(gr[0].prot):'--')+'</div><div class="s">'+(gr.length&&tot>0?f2(gr[0].usd/tot*100)+'% do total':'')+'</div></div></div>';
+  if(gr.length){
+    h+='<div class="imb-bar">'+gr.map((g,i)=>'<i style="width:'+(tot>0?g.usd/tot*100:0)+'%;background:'+PAL[i%PAL.length]+'"></i>').join('')+'</div><div class="imb-leg">'+gr.map((g,i)=>'<span><i style="background:'+PAL[i%PAL.length]+'"></i>'+E(g.prot)+' · '+(tot>0?f2(g.usd/tot*100):'0')+'%</span>').join('')+'</div>';
+    gr.forEach(g=>{ g.list.sort((a,b)=>b.usd-a.usd);
+      h+='<div class="imb-grp"><div class="imb-gh"><b>'+E(g.prot)+'</b><span>'+USD(g.usd)+(tot>0?' · '+f2(g.usd/tot*100)+'%':'')+'</span></div><div class="g-tw"><table class="brw-tbl nol"><thead><tr><th>Ativo</th><th>Tipo</th><th>Wallet</th><th>Valor</th><th>APY</th><th>Atualizado</th><th>Obs</th><th></th></tr></thead><tbody>'
+       +g.list.map(x=>'<tr><td><b>'+E(x.ativo||'—')+'</b></td><td>'+E(x.tipo||'—')+'</td><td>'+E(x.wallet||'—')+'</td><td><b>'+USD(x.usd)+'</b></td><td>'+(x.apy==null?'--':f2(x.apy)+'%')+'</td><td>'+fdate(x.data)+'</td><td class="o">'+E(x.obs)+'</td><td class="g-act"><button data-a="edit" data-r="'+x._row+'">editar</button><button class="rm" data-a="del" data-r="'+x._row+'">remover</button></td></tr>').join('')
+       +'</tbody></table></div></div>'; });
+  } else h+='<div class="note" style="margin-top:14px">Nenhuma posição ainda. Clique em "+ Adicionar posição" (ex.: Morpho, ativo USDC, tipo Supply, valor US$ 1.000).</div>';
+  root.innerHTML=h;
+}
+function fields(r){ const ws=(window.__wallets?window.__wallets().map(w=>w.nome):[]); return [
+  {k:'protocolo',l:'Protocolo',v:r?r.prot:'',list:Array.from(new Set(PROTS.concat(items().map(x=>x.prot)))),ph:'Ex.: Morpho',full:1},
+  {k:'ativo',l:'Ativo',v:r?r.ativo:'',ph:'Ex.: USDC, stETH'},
+  {k:'tipo',l:'Tipo',v:r&&r.tipo?r.tipo:TIPOS[0],opts:(r&&r.tipo&&!TIPOS.includes(r.tipo))?TIPOS.concat([r.tipo]):TIPOS},
+  {k:'wallet',l:'Wallet (opcional)',v:r?r.wallet:'',list:ws,ph:'Principal'},
+  {k:'valor',l:'Valor atual (US$)',v:r?dec(r.usd):'',ph:'1.000'},
+  {k:'apy',l:'APY % (opcional)',v:r&&r.apy!=null?dec(r.apy):'',ph:'5,2'},
+  {k:'data',l:'Atualizado em',t:'date',v:r&&r.data?String(r.data).slice(0,10):today()},
+  {k:'obs',l:'Obs',v:r?r.obs:'',full:1}]; }
+function payload(o){ if(!String(o.protocolo||'').trim()) throw new Error('Informe o protocolo.'); if(!(numIn(o.valor)>0)) throw new Error('Informe o valor atual.'); return {protocolo:o.protocolo.trim(),ativo:(o.ativo||'').trim(),tipo:o.tipo||'',wallet:(o.wallet||'').trim(),valor:numIn(o.valor),apy:o.apy===''||o.apy==null?'':numIn(o.apy),data:o.data||'',obs:o.obs||''}; }
+const put=(f,row)=>post({type:'put',sheet:'Protocolos',row:row||undefined,fields:f});
+root.addEventListener('click',e=>{ const b=e.target.closest('[data-a]'); if(!b) return; const a=b.dataset.a, row=b.dataset.r;
+  if(a==='add') window.__modal('Nova posição',fields(null),o=>put(payload(o)));
+  if(a==='edit'){ const r=items().find(x=>String(x._row)===row); if(r) window.__modal('Editar posição',fields(r),o=>put(payload(o),r._row)); }
+  if(a==='del'&&confirm('Remover esta posição?')) post({type:'delete',sheet:'Protocolos',row}).then(()=>loadFromSheet()).catch(err=>alert('Erro: '+err.message)); });
+window.__protoUsd=sumNow;
+const o0=computeAndRender; computeAndRender=async function(){ try{ live.protoUsd=sumNow(); }catch(e){} const r=await o0.apply(this,arguments); try{ draw(); }catch(e){console.error(e);} return r; };
+try{ live.protoUsd=sumNow(); }catch(e){}
+draw(true);
+})();
+</script>
+<script id="nev-js">
+(function(){
+const $=id=>document.getElementById(id);
+const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const K='dash:nonevm';
+const BTC_OK=a=>/^(bc1[ac-hj-np-z02-9]{11,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/i.test(a||'')&&(/^bc1/i.test(a)||/^[13]/.test(a));
+const SOL_OK=a=>/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a||'');
+const OKR=(r,a)=>r==='sol'?SOL_OK(a):BTC_OK(a);
+function getN(){ try{ return (JSON.parse(localStorage.getItem(K)||'[]')||[]).filter(x=>x&&x.addr); }catch(e){ return []; } }
+function setN(list){ const s=JSON.stringify(list); try{ localStorage.setItem(K,s); }catch(e){} try{ const db=LOCALDB.load(); LOCALDB.cfgSet(db,'carteirasx',s); LOCALDB.save(db); }catch(e){} window.__nevDirty=1; }
+try{ if(!localStorage.getItem(K)){ const m=LOCALDB.cfgGet(LOCALDB.load(),'carteirasx'); if(m) localStorage.setItem(K,m); } }catch(e){}
+
+// ---- leitura de saldos ----
+let NEV=[]; let busy=false;
+async function jget(urls){ for(const u of urls){ try{ const r=await fetch(u); if(r.ok) return await r.json(); }catch(e){} } return null; }
+async function sol(method,params){ for(const u of ['https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com']){ try{ const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})}); const j=await r.json(); if(j&&j.result!==undefined) return j.result; }catch(e){} } return null; }
+async function btcBal(a){ const j=await jget(['https://mempool.space/api/address/'+a,'https://blockstream.info/api/address/'+a]); if(!j||!j.chain_stats) return null; const f=s=>(s.funded_txo_sum||0)-(s.spent_txo_sum||0); return (f(j.chain_stats)+f(j.mempool_stats||{}))/1e8; }
+async function solPrice(){ const b=(typeof live!=='undefined'&&live.binancePrices)||{}; if(b.SOLUSDT) return b.SOLUSDT; const j=await jget(['https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT']); return j&&+j.price||0; }
+async function scan(){
+  if(busy) return; const L=getN(); if(!L.length){ if(NEV.length){ NEV=[]; try{ computeAndRender(); }catch(e){} } return; }
+  busy=true;
+  try{
+    const out=[]; let sp=0; const multi=L.length>1;
+    for(const w of L){
+      const nm=multi&&w.nome?' · '+w.nome:'';
+      if(w.rede==='btc'){ const q=await btcBal(w.addr); let p=(typeof live!=='undefined'&&live.btcPrice)||0; if(!p){ const j=await jget(['https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT']); p=j&&+j.price||0; } if(q!=null&&p&&q>0) out.push({c:'BTC',n:'Bitcoin'+nm,q,pr:p,v:q*p,x:1}); }
+      else if(w.rede==='sol'){
+        const r=await sol('getBalance',[w.addr]); if(r&&r.value>0){ if(!sp) sp=await solPrice(); const q=r.value/1e9; if(sp) out.push({c:'SOL',n:'Solana'+nm,q,pr:sp,v:q*sp,x:1}); }
+        const TK=[['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v','USDC'],['Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB','USDT']];
+        for(const [mint,sym] of TK){ const t=await sol('getTokenAccountsByOwner',[w.addr,{mint},{encoding:'jsonParsed'}]); const q=((t&&t.value)||[]).reduce((a,x)=>a+(+((((x.account||{}).data||{}).parsed||{}).info||{}).tokenAmount.uiAmount||0),0); if(q>0.01) out.push({c:sym,n:'Solana'+nm,q,pr:1,v:q,x:1}); }
+      }
+    }
+    NEV=out; try{ computeAndRender(); }catch(e){}
+  }finally{ busy=false; }
+}
+// ---- soma na Visão Geral e na lista da wallet ----
+(function(){
+  if(typeof live==='undefined') return;
+  let base, baseV;
+  const hasEvm=()=>typeof WALLET==='string'&&!!WALLET&&!/^0x0{40}$/i.test(WALLET);
+  Object.defineProperty(live,'wallAuto',{configurable:true,enumerable:true,
+    get(){ if(base===undefined&&!(!hasEvm()&&NEV.length)) return undefined; return (base||[]).concat(NEV); },
+    set(v){ base=(v||[]).filter(x=>!x.x); } });
+  Object.defineProperty(live,'wallExtraV',{configurable:true,enumerable:true,
+    get(){ if(baseV===undefined&&!NEV.length) return undefined; return (baseV||0)+NEV.reduce((a,x)=>a+x.v,0); },
+    set(v){ baseV=v; } });
+})();
+window.__nevScan=scan;
+setTimeout(scan,2500); setInterval(()=>{ if(document.visibilityState==='visible') scan(); },120000);
+
+// ---- Perfil: seção "Bitcoin e Solana" ----
+const IS='background:var(--panel,#1b1b1b);border:1px solid var(--line,#333);border-radius:12px;color:inherit;padding:12px;font-size:14px;box-sizing:border-box;';
+const _s=window.showSetup;
+window.showSetup=function(edit){
+  _s(edit);
+  const w=$('su-w'); if(!w||$('nv-box')) return;
+  const rowHtml=x=>'<div class="nv-r" style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><select data-k="r" style="'+IS+'flex:0 0 28%;min-width:0"><option value="btc"'+(x.rede!=='sol'?' selected':'')+'>BTC</option><option value="sol"'+(x.rede==='sol'?' selected':'')+'>Solana</option></select><input data-k="a" value="'+E(x.addr)+'" placeholder="Endereço" autocomplete="off" autocapitalize="off" spellcheck="false" style="'+IS+'flex:1;min-width:0;font-family:monospace;font-size:13px"><button type="button" data-rm="1" style="background:none;border:none;color:var(--text-faint,#6b7280);font-size:20px;cursor:pointer;padding:0 4px">×</button></div>';
+  const box=document.createElement('div'); box.id='nv-box'; box.style.cssText='margin:0 0 18px';
+  box.innerHTML='<label style="font-size:13px;color:var(--text-dim,#9aa0a6)">Bitcoin e Solana</label><div id="nv-rows" style="margin-top:6px">'+getN().map(rowHtml).join('')+'</div><button type="button" id="nv-add" style="background:none;border:1px dashed var(--line,#333);color:var(--text-dim,#9aa0a6);border-radius:12px;padding:12px;width:100%;font-size:15px;cursor:pointer">+ Adicionar endereço BTC ou Solana</button><div style="font-size:12px;color:var(--text-faint,#6b7280);margin-top:6px">Só o endereço público (BTC começa com bc1, 1 ou 3). Soma tudo na Visão Geral.</div>';
+  const anchor=$('sw-box')||(w.nextElementSibling||w); anchor.insertAdjacentElement('afterend',box);
+  const rows=box.querySelector('#nv-rows');
+  const collect=()=>{ const list=[]; rows.querySelectorAll('.nv-r').forEach(r=>{ const rd=r.querySelector('[data-k=r]').value, ai=r.querySelector('[data-k=a]'), a=ai.value.trim(); const bad=a&&!OKR(rd,a); ai.style.borderColor=bad?'#f87171':''; if(a&&!bad) list.push({nome:'',rede:rd,addr:a}); }); setN(list); };
+  rows.addEventListener('input',collect); rows.addEventListener('change',collect);
+  rows.addEventListener('click',e=>{ const b=e.target.closest('[data-rm]'); if(!b) return; b.closest('.nv-r').remove(); collect(); });
+  $('nv-add').onclick=()=>{ rows.insertAdjacentHTML('beforeend',rowHtml({rede:'btc',addr:''})); const l=rows.lastElementChild.querySelector('[data-k=a]'); if(l) l.focus(); };
+  const s=$('su-s'); if(s){ const os=s.onclick; s.onclick=function(){ collect(); const er=$('su-er'); if([...rows.querySelectorAll('.nv-r')].some(r=>{const a=r.querySelector('[data-k=a]').value.trim(); return a&&!OKR(r.querySelector('[data-k=r]').value,a);})){ if(er) er.textContent='Endereço BTC/Solana inválido.'; return; } return os&&os.apply(this,arguments); }; }
+  const c=$('su-c'); if(c){ const oc=c.onclick; c.onclick=function(){ if(oc) oc.call(this); if(window.__nevDirty){ window.__nevDirty=0; location.reload(); } }; }
+};
+if($('setup-ov')&&$('su-c')) window.showSetup(true);
+})();
+</script>
+<script id="reset-js">
+(function(){
+const $=id=>document.getElementById(id);
+function wipe(){
+  try{ const ks=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&/^dash(local)?:/.test(k)) ks.push(k); } ks.forEach(k=>localStorage.removeItem(k)); }catch(e){}
+  try{ sessionStorage.clear(); }catch(e){}
+  location.reload();
+}
+function backup(){
+  try{ const b=new Blob([JSON.stringify(window.LOCALDB.load(),null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); const d=new Date(); a.download='backup-dash-'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json'; document.body.appendChild(a); a.click(); a.remove(); return true; }catch(e){ return false; }
+}
+function confirmBox(){
+  const o=document.createElement('div'); o.style.cssText='position:fixed;inset:0;z-index:100020;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px';
+  o.innerHTML='<div style="background:var(--panel,#1b1b1b);border:1px solid var(--line,#333);border-radius:16px;padding:22px;max-width:380px;width:100%;color:var(--text,#eee)"><div style="font-size:18px;font-weight:600;margin-bottom:10px">Apagar todos os dados?</div>'
+   +'<div style="font-size:14px;line-height:1.5;color:var(--text-dim,#9aa0a6);margin-bottom:16px">Isso remove deste navegador tudo o que você lançou (aportes, gastos, contas, wallets, configurações) e volta para a tela inicial. <b style="color:var(--text,#eee)">Não dá para desfazer.</b></div>'
+   +'<button id="rs-bk" style="width:100%;padding:12px;font-size:15px;border-radius:999px;border:1px solid var(--line,#333);background:none;color:inherit;cursor:pointer;margin-bottom:10px">Baixar backup antes</button>'
+   +'<div id="rs-ok" style="font-size:13px;color:#4ade80;min-height:18px;margin-bottom:8px"></div>'
+   +'<div style="display:flex;gap:10px"><button id="rs-go" style="flex:1;padding:13px;font-size:15px;font-weight:600;border:none;border-radius:999px;background:#ef4444;color:#fff;cursor:pointer">Apagar tudo</button><button id="rs-no" style="padding:13px 20px;font-size:15px;border-radius:999px;border:1px solid var(--line,#333);background:none;color:inherit;cursor:pointer">Cancelar</button></div></div>';
+  document.body.appendChild(o);
+  o.querySelector('#rs-no').onclick=()=>o.remove();
+  o.querySelector('#rs-bk').onclick=()=>{ o.querySelector('#rs-ok').textContent=backup()?'Backup baixado.':'Não consegui baixar o backup.'; };
+  o.querySelector('#rs-go').onclick=wipe;
+}
+const _p=window.showSetup;
+window.showSetup=function(edit){
+  _p(edit);
+  const ov=$('setup-ov'); if(!ov||!edit) return;
+  const card=ov.firstElementChild; if(!card||$('rs-open')) return;
+  const d=document.createElement('div'); d.style.cssText='margin-top:28px;padding-top:20px;border-top:1px solid var(--line,#333)';
+  d.innerHTML='<button type="button" id="rs-open" style="width:100%;padding:14px;font-size:15px;border-radius:999px;border:1px solid #ef4444;background:none;color:#ef4444;cursor:pointer">Sair e apagar meus dados</button><div style="font-size:12px;color:var(--text-faint,#6b7280);margin-top:8px;text-align:center">Remove tudo deste navegador e reinicia o painel.</div>';
+  card.appendChild(d); d.querySelector('#rs-open').onclick=confirmBox;
+};
+if($('setup-ov')&&$('su-c')) window.showSetup(true);
 })();
 </script>
 </body>
