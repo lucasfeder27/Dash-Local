@@ -6049,7 +6049,7 @@ html[data-theme="light"] .mc-bar{background:var(--panel-2) !important;}
 #ov-total2{order:-1;}
 #ov-pair{margin-bottom:22px;}
 #ov-pair > .ov-total{display:block !important;}
-#ov-pair .ov-total .val{white-space:nowrap;font-size:clamp(26px,2.6vw,40px) !important;}
+@media (min-width:701px){#ov-pair .ov-total .val{white-space:nowrap;font-size:clamp(26px,2.6vw,40px) !important;}}
 #ov-total2 .btc-r{grid-column:auto !important;grid-row:auto !important;}
 #ov-pair > #dst-card{grid-column:1 / -1;order:3;margin:0 !important;}
 #ov-total2 .btc-r{display:flex !important;align-items:baseline;justify-content:space-between;gap:8px;margin-top:14px !important;padding-top:10px;border-top:1px solid var(--line);text-align:left !important;position:static !important;}
@@ -6059,8 +6059,8 @@ html[data-theme="light"] .mc-bar{background:var(--panel-2) !important;}
   #ov-pair{gap:8px;}
   #ov-pair > .ov-total{padding:12px 12px !important;}
   #ov-pair .lbl{font-size:11.5px !important;}
-  #ov-pair .val{font-size:15.5px !important;margin:4px 0 0 !important;white-space:nowrap;}
-  #ov-pair .val *{font-size:inherit !important;}
+  #ov-pair .ov-total .val{font-size:16px !important;margin:4px 0 0 !important;white-space:nowrap;}
+  #ov-pair .ov-total .val *{font-size:inherit !important;}
   #ov-total2 .btc-r{margin-top:8px !important;padding-top:6px;}
   #ov-total2 .btc-r .l{font-size:11px;}
   #ov-total2 .btc-r .v{font-size:13.5px !important;}
@@ -6124,6 +6124,18 @@ new MutationObserver(sync).observe(tab,{attributes:true,attributeFilter:['class'
 <style id="ui7-css">
 /* ===== tema escuro um pouco mais escuro ===== */
 html:not([data-theme="light"]):not([data-theme="game"]){--bg:#08090a;--panel:#0f1012;--panel-2:#141518;--line:#1b1d20;--line-strong:#272a2e;}
+/* ===== rosca: texto central enquadrado ===== */
+#dst-card .dn{aspect-ratio:1 / 1;height:auto !important;}
+#dst-card .dn svg{width:100% !important;height:100% !important;display:block;}
+#dst-card .dn .ct{padding:0;}
+#dst-card .dn .ct b{font-size:11.5px !important;margin-top:2px;letter-spacing:-.01em;}
+#dst-card .dn .ct small{font-size:9px !important;}
+@media (max-width:700px){
+  #dst-card .b{grid-template-columns:118px 1fr !important;}
+  #dst-card .dn{max-width:118px !important;}
+  #dst-card .dn .ct b{font-size:8.5px !important;}
+  #dst-card .dn .ct small{font-size:7px !important;letter-spacing:.1em;}
+}
 /* ===== botões + flutuantes ===== */
 #fin-fab,#wp-fab{right:34px !important;bottom:42px !important;}
 #fin-menu,#wp-menu{right:34px !important;bottom:116px !important;}
