@@ -716,10 +716,10 @@ try{
     <div class="add-form collapsed">
       <div class="fld"><label>Data</label><input type="date" id="in-repay-data"></div>
       <div class="fld"><label>Qntd em USD</label><input type="number" step="0.01" id="in-repay-usd" placeholder="0.00"></div>
-      <div class="fld"><label>cbBTC repago</label><input type="number" step="0.00000001" id="in-repay-qty" placeholder="0.00000000"></div>
+      <div class="fld"><label>cbBTC repago (vazio = pago com USDC)</label><input type="number" step="0.00000001" id="in-repay-qty" placeholder="0.00000000"></div>
       <button id="btn-add-repay">Adicionar</button>
     </div>
-    <div class="note">Use quando vender parte do colateral pra pagar (reduzir) a dívida na Aave. O preço é calculado sozinho (USD ÷ cbBTC) e vai pra aba "Repays".</div>
+    <div class="note">Use quando vender parte do colateral pra pagar (reduzir) a dívida na Aave. Se pagou com USDC da carteira, deixe o cbBTC vazio. Se vendeu cbBTC, o preço é calculado sozinho (USD ÷ cbBTC).</div>
     <table>
       <thead><tr><th>Data</th><th>Qntd (USD)</th><th>cbBTC repago</th><th>Preço</th><th></th></tr></thead>
       <tbody id="tbl-repays"></tbody>
@@ -1284,12 +1284,12 @@ function renderVendas(){
 function renderRepays(){
   const tbody = document.getElementById('tbl-repays'); if(!tbody) return;
   tbody.innerHTML = '';
-  const valid = (state.repays||[]).filter(r => r && r.date && !isNaN(r.usd) && !isNaN(r.qty) && r.qty > 0);
+  const valid = (state.repays||[]).filter(r => r && r.date && !isNaN(r.usd));
   let totUsd=0, totQty=0;
   valid.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).forEach(r=>{
-    totUsd += r.usd; totQty += r.qty;
+    const q = (r.qty>0)?r.qty:0; totUsd += r.usd; totQty += q;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${fmtDateBR(r.date)}</td><td>${fmtUSD(r.usd)}</td><td>${r.qty.toFixed(8)}</td><td>${fmtUSD(r.price||(r.usd/r.qty))}</td>
+    tr.innerHTML = `<td>${fmtDateBR(r.date)}</td><td>${fmtUSD(r.usd)}</td><td>${q>0?q.toFixed(8):'—'}</td><td>${q>0?fmtUSD(r.price||(r.usd/q)):'<span style="color:var(--muted,#888)">pago com USDC</span>'}</td>
       <td><button class="ghost" onclick="deleteRow('Repays',${r._row},'repays','${r.id}')">remover</button></td>`;
     tbody.appendChild(tr);
   });
@@ -1700,13 +1700,12 @@ document.getElementById('btn-add-repay').addEventListener('click', async ()=>{
   const status = document.getElementById('rpc-status');
   const date = document.getElementById('in-repay-data').value;
   const usd = parseFloat(document.getElementById('in-repay-usd').value);
-  const qty = parseFloat(document.getElementById('in-repay-qty').value);
+  const qty = parseFloat(document.getElementById('in-repay-qty').value) || 0;
   if(!date){ status.textContent = 'Preencha a data do repay antes de salvar.'; return; }
   if(!usd || usd<=0){ status.textContent = 'Preencha a Qntd em USD (maior que zero).'; return; }
-  if(!qty || qty<=0){ status.textContent = 'Preencha o cbBTC repago (maior que zero).'; return; }
   status.textContent = 'Gravando repay na planilha...';
   try{
-    await postToSheet({type:'repay', date, usd, qty, preco: usd/qty});
+    await postToSheet({type:'repay', date, usd, qty, preco: qty>0 ? usd/qty : 0});
     document.getElementById('in-repay-usd').value=''; document.getElementById('in-repay-qty').value='';
     status.textContent = 'Repay registrado na planilha.';
     await loadFromSheet();
