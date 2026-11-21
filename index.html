@@ -487,7 +487,6 @@ try{
         <div id="retorno7d-pct" style="font-family:var(--mono); font-size:28px; font-weight:700;">--</div>
         <div id="retorno7d-abs" style="font-size:12px; color:var(--text-faint); margin-top:4px;">--</div>
       </div>
-      <div class="note">Compara o patrimônio total de hoje (Principal + Extra + Corretora + Ações) com o snapshot salvo mais próximo de 7 dias atrás.</div>
     </div>
 
     <div class="section">
@@ -716,12 +715,12 @@ try{
     <div class="add-form collapsed">
       <div class="fld"><label>Data</label><input type="date" id="in-repay-data"></div>
       <div class="fld"><label>Qntd em USD</label><input type="number" step="0.01" id="in-repay-usd" placeholder="0.00"></div>
-      <div class="fld"><label>cbBTC repago (vazio = pago com USDC)</label><input type="number" step="0.00000001" id="in-repay-qty" placeholder="0.00000000"></div>
+      <div class="fld"><label>Ativo repago</label><select id="in-repay-asset" onchange="document.getElementById('in-repay-qty').parentNode.style.display=this.value==='USDC'?'none':''"><option value="cbBTC">cbBTC</option><option value="USDC">USDC</option></select></div>
+      <div class="fld"><label>Qntd repago</label><input type="number" step="0.00000001" id="in-repay-qty" placeholder="0.00000000"></div>
       <button id="btn-add-repay">Adicionar</button>
     </div>
-    <div class="note">Use quando vender parte do colateral pra pagar (reduzir) a dívida na Aave. Se pagou com USDC da carteira, deixe o cbBTC vazio. Se vendeu cbBTC, o preço é calculado sozinho (USD ÷ cbBTC).</div>
     <table>
-      <thead><tr><th>Data</th><th>Qntd (USD)</th><th>cbBTC repago</th><th>Preço</th><th></th></tr></thead>
+      <thead><tr><th>Data</th><th>Qntd (USD)</th><th>Repago</th><th>Cotação</th><th></th></tr></thead>
       <tbody id="tbl-repays"></tbody>
       <tfoot><tr><td>Total</td><td id="tot-repays-usd">--</td><td id="tot-repays-qty">--</td><td></td><td></td></tr></tfoot>
     </table>
@@ -1289,13 +1288,13 @@ function renderRepays(){
   valid.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).forEach(r=>{
     const q = (r.qty>0)?r.qty:0; totUsd += r.usd; totQty += q;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${fmtDateBR(r.date)}</td><td>${fmtUSD(r.usd)}</td><td>${q>0?q.toFixed(8):'—'}</td><td>${q>0?fmtUSD(r.price||(r.usd/q)):'<span style="color:var(--muted,#888)">pago com USDC</span>'}</td>
+    tr.innerHTML = `<td>${fmtDateBR(r.date)}</td><td>${fmtUSD(r.usd)}</td><td>${q>0?q.toFixed(8)+' cbBTC':r.usd.toFixed(2)+' USDC'}</td><td>${q>0?fmtUSD(r.price||(r.usd/q)):fmtUSD(1)}</td>
       <td><button class="ghost" onclick="deleteRow('Repays',${r._row},'repays','${r.id}')">remover</button></td>`;
     tbody.appendChild(tr);
   });
   if(document.getElementById('repays-count')) document.getElementById('repays-count').textContent = `(${valid.length})`;
   if(document.getElementById('tot-repays-usd')) document.getElementById('tot-repays-usd').textContent = fmtUSD(totUsd);
-  if(document.getElementById('tot-repays-qty')) document.getElementById('tot-repays-qty').textContent = totQty.toFixed(8);
+  if(document.getElementById('tot-repays-qty')) document.getElementById('tot-repays-qty').textContent = totQty.toFixed(8)+' cbBTC';
 }
 function renderCompras(){
   const tbody = document.getElementById('tbl-compras'); tbody.innerHTML = '';
@@ -1700,9 +1699,11 @@ document.getElementById('btn-add-repay').addEventListener('click', async ()=>{
   const status = document.getElementById('rpc-status');
   const date = document.getElementById('in-repay-data').value;
   const usd = parseFloat(document.getElementById('in-repay-usd').value);
-  const qty = parseFloat(document.getElementById('in-repay-qty').value) || 0;
+  const asset = (document.getElementById('in-repay-asset')||{}).value || 'cbBTC';
+  const qty = asset==='USDC' ? 0 : (parseFloat(document.getElementById('in-repay-qty').value) || 0);
   if(!date){ status.textContent = 'Preencha a data do repay antes de salvar.'; return; }
   if(!usd || usd<=0){ status.textContent = 'Preencha a Qntd em USD (maior que zero).'; return; }
+  if(asset!=='USDC' && !(qty>0)){ status.textContent = 'Preencha a quantidade de cbBTC repago (ou escolha USDC).'; return; }
   status.textContent = 'Gravando repay na planilha...';
   try{
     await postToSheet({type:'repay', date, usd, qty, preco: qty>0 ? usd/qty : 0});
@@ -6026,5 +6027,102 @@ ov(); earn(); setTimeout(()=>{ov();earn();},800); setTimeout(()=>{ov();earn();},
   #meta-card{padding:12px 14px !important;}
 }
 </style>
+<style id="ui6-css">
+/* ===== temas: claro mais apagado, escuro mais escuro ===== */
+html[data-theme="light"]{--bg:#e8e7e4;--panel:#f1f0ed;--panel-2:#e5e4e0;--line:#d8d7d2;--line-strong:#c8c7c1;--text:#2d3036;--text-dim:#62666f;--text-faint:#8a8d95;}
+html[data-theme="light"] body{background:var(--bg) !important;}
+html[data-theme="light"] #sidebar,html[data-theme="light"] #rightbar{background:#dfded9 !important;}
+html[data-theme="light"] #sidebar .sb-item.active{background:#f1f0ed !important;}
+html[data-theme="light"] #sidebar .sb-theme,html[data-theme="light"] .subtab{background:#f1f0ed !important;}
+html[data-theme="light"] .subtab.active{background:#d9d8d3 !important;border-color:#c8c7c1 !important;}
+html[data-theme="light"] #ov-total-card,html[data-theme="light"] #ov-total2{background:var(--panel) !important;}
+html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] textarea{background:#f6f5f2 !important;}
+html:not([data-theme="light"]):not([data-theme="game"]){--bg:#0e0f11;--panel:#151618;--panel-2:#1b1c1f;--line:#232529;--line-strong:#2f3237;}
+html:not([data-theme="light"]):not([data-theme="game"]) body{background:var(--bg);}
+html[data-theme="light"] #perf-card,html[data-theme="light"] #evo-card,html[data-theme="light"] #meta-card,html[data-theme="light"] .cg,html[data-theme="light"] .stat,html[data-theme="light"] .result,html[data-theme="light"] .overview-card,html[data-theme="light"] .note-card,html[data-theme="light"] #dst-card,html[data-theme="light"] .section,html[data-theme="light"] .cfg-card{background:var(--panel) !important;}
+html[data-theme="light"] #sidebar .sb-item.active{background:#d6d5d0 !important;color:var(--text) !important;box-shadow:none !important;}
+html[data-theme="light"] .mc-bar{background:var(--panel-2) !important;}
+#in-repay-asset{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line-strong);background:var(--panel);color:var(--text);font:inherit;}
+/* ===== textos removidos ===== */
+#btc-price-oracle{display:none !important;}
+#ov-total-card > .sub,#ov-total2 > .sub{display:none !important;}
+/* ===== Visão Geral: Total à esquerda, Líquido à direita ===== */
+#ov-pair{display:grid !important;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;}
+#ov-pair > .ov-total{min-width:0;margin:0 !important;max-width:none !important;width:auto !important;}
+#ov-total2{order:-1;}
+#ov-pair{margin-bottom:22px;}
+#ov-pair > .ov-total{display:block !important;}
+#ov-pair .ov-total .val{white-space:nowrap;font-size:clamp(26px,2.6vw,40px) !important;}
+#ov-total2 .btc-r{grid-column:auto !important;grid-row:auto !important;}
+#ov-pair > #dst-card{grid-column:1 / -1;order:3;margin:0 !important;}
+#ov-total2 .btc-r{display:flex !important;align-items:baseline;justify-content:space-between;gap:8px;margin-top:14px !important;padding-top:10px;border-top:1px solid var(--line);text-align:left !important;position:static !important;}
+#ov-total2 .btc-r .l{font-size:12px;}
+#ov-total2 .btc-r .v{font-size:17px !important;font-weight:600;margin:0 !important;}
+@media (max-width:700px){
+  #ov-pair{gap:8px;}
+  #ov-pair > .ov-total{padding:12px 12px !important;}
+  #ov-pair .lbl{font-size:11.5px !important;}
+  #ov-pair .val{font-size:15.5px !important;margin:4px 0 0 !important;white-space:nowrap;}
+  #ov-pair .val *{font-size:inherit !important;}
+  #ov-total2 .btc-r{margin-top:8px !important;padding-top:6px;}
+  #ov-total2 .btc-r .l{font-size:11px;}
+  #ov-total2 .btc-r .v{font-size:13.5px !important;}
+}
+/* ===== Distribuição: usa toda a largura, categorias ao lado ===== */
+#dst-card{max-width:none !important;width:100% !important;}
+#dst-card .b{display:grid !important;grid-template-columns:minmax(170px,230px) 1fr;gap:34px;align-items:center;}
+#dst-card .dn{margin:0 auto !important;width:100%;max-width:230px;}
+#dst-card .lg{display:grid !important;grid-template-columns:1fr;gap:14px;}
+@media (max-width:700px){
+  #dst-card .b{grid-template-columns:104px 1fr;gap:14px;}
+  #dst-card .dn{max-width:104px;}
+  #dst-card .ct b{font-size:9px !important;}
+  #dst-card .ct small{font-size:7px !important;}
+  #dst-card .lg{gap:8px;}
+  #dst-card .it .n{font-size:12.5px !important;}
+  #dst-card .it .v{font-size:11.5px !important;}
+  #dst-card .it .p{font-size:13px !important;}
+}
+/* ===== botão + (Finanças e Wallet Principal) na direita ===== */
+#fin-fab,#wp-fab{position:fixed;right:20px !important;left:auto !important;transform:none !important;bottom:22px;width:60px;height:60px;border-radius:50% !important;border:none;background:#8ab4f8;color:#111;font-size:34px;line-height:1;cursor:pointer;z-index:70;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+#wp-fab{display:none;}
+body.wp-on #wp-fab{display:block;}
+#fin-menu,#wp-menu{position:fixed;right:20px !important;left:auto !important;transform:none !important;bottom:94px !important;background:var(--panel);border:1px solid var(--line-strong);border-radius:24px;padding:6px 8px;z-index:71;display:none;min-width:250px;box-shadow:0 12px 34px rgba(0,0,0,.4);}
+body.wp-open #wp-menu{display:block;}
+#wp-menu button{display:flex;align-items:center;gap:14px;width:100%;background:none;border:none;border-bottom:1px solid var(--line);color:var(--text);font-size:16px;padding:12px 10px;cursor:pointer;text-align:left;font-family:inherit;border-radius:0;}
+#wp-menu button:last-child{border-bottom:none;}
+#wp-menu .wi{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;background:var(--panel-2);}
+@media (max-width:700px){#fin-fab,#wp-fab{right:16px !important;bottom:18px;width:54px;height:54px;font-size:30px;}#fin-menu,#wp-menu{right:16px !important;bottom:84px !important;}}
+</style>
+<script id="ui6-js">
+(function(){
+const $=id=>document.getElementById(id);
+// cores do retorno 7d (verde/vermelho)
+function col(){ const a=$('retorno7d-abs'); if(!a) return; const t=(a.textContent||'').trim(); if(!t||t==='--') return; a.style.color=/^-/.test(t)?'var(--red)':'var(--green)'; }
+const ab=$('retorno7d-abs'); if(ab) new MutationObserver(col).observe(ab,{childList:true,characterData:true,subtree:true}); setInterval(col,2000); col();
+// remove o texto explicativo do retorno 7d
+document.querySelectorAll('#tab-overview .note').forEach(n=>{ if(/Compara o patrimônio total de hoje/.test(n.textContent)) n.remove(); });
+// ---- botão + da Wallet Principal ----
+const tab=$('tab-aave'); if(!tab) return;
+const fab=document.createElement('button'); fab.id='wp-fab'; fab.textContent='+'; fab.setAttribute('aria-label','Lançar'); document.body.appendChild(fab);
+const menu=document.createElement('div'); menu.id='wp-menu';
+const IT=[['Aportes','＋'],['Saques','－'],['Borrows','⇩'],['Compras de BTC','₿'],['Vendas de BTC','₿'],['Repays','↺']];
+menu.innerHTML=IT.map(x=>'<button data-w="'+x[0]+'"><span class="wi">'+x[1]+'</span>'+x[0]+'</button>').join('');
+document.body.appendChild(menu);
+fab.onclick=e=>{ e.stopPropagation(); document.body.classList.toggle('wp-open'); };
+document.addEventListener('click',e=>{ if(!e.target.closest('#wp-menu,#wp-fab')) document.body.classList.remove('wp-open'); });
+const secOf=l=>[...tab.querySelectorAll(':scope > .section')].find(s=>{const h=s.querySelector(':scope > h2.toggle'); return h&&h.textContent.replace('▸','').replace(/\s+/g,' ').trim().startsWith(l);});
+menu.onclick=e=>{ const b=e.target.closest('button[data-w]'); if(!b) return; document.body.classList.remove('wp-open');
+  const l=b.dataset.w;
+  const hb=tab.querySelector('.wp-tabs .subtab[data-k="hist"]'); if(hb) hb.click();
+  const subbar=tab.querySelector(':scope > .subtabs'); const chip=subbar&&[...subbar.children].find(c=>c.textContent.trim().startsWith(l)); if(chip) chip.click();
+  setTimeout(()=>{ const s=secOf(l); if(!s) return;
+    const h=s.querySelector(':scope > h2.toggle'); if(h&&!s.classList.contains('open')&&s.querySelector(':scope > .section-body')&&getComputedStyle(s.querySelector(':scope > .section-body')).display==='none') h.click();
+    const t=s.querySelector('.add-trigger[data-label]'); const f=t&&t.nextElementSibling; if(t&&f&&f.classList.contains('collapsed')) t.click();
+    s.scrollIntoView({behavior:'smooth',block:'start'}); },250); };
+const sync=()=>{ const on=tab.classList.contains('active'); document.body.classList.toggle('wp-on',on); if(!on) document.body.classList.remove('wp-open'); };
+new MutationObserver(sync).observe(tab,{attributes:true,attributeFilter:['class']}); sync();
+})();
+</script>
 </body>
 </html>
