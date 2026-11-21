@@ -5862,5 +5862,170 @@ function cfg(){
 info(); setTimeout(info,1500); cfg();
 })();
 </script>
+<style id="wp-css">
+#tab-aave .wp-off{display:none !important;}
+#tab-aave .section.wp-all.sub-hide{display:block !important;}
+#tab-aave .section.wp-all > h2.toggle.sub-hide{display:block !important;}
+.wp-tabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 18px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.wp-tabs::-webkit-scrollbar{display:none;}
+.wp-tabs .subtab{flex:0 0 auto;}
+#tab-aave .subtabs .subtab.wp-zero{opacity:.45;}
+#tab-aave .subtabs .subtab.wp-zero.active{opacity:1;}
+#tab-aave .subtabs .subtab.wp-hid{display:none !important;}
+#wp-info{margin:18px 0 8px;font-size:13px;color:var(--text-faint);}
+#wp-info > summary{cursor:pointer;display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:999px;list-style:none;}
+#wp-info > summary::-webkit-details-marker{display:none;}
+#wp-info.wp-err > summary{color:var(--red);border-color:var(--red);}
+#wp-info[open] > summary{margin-bottom:10px;}
+</style>
+<script id="wp-js">
+(function(){
+let tries=0;
+function init(){
+  const p=document.getElementById('tab-aave'); if(!p) return;
+  const subbar=p.querySelector(':scope > .subtabs');
+  if(!subbar||!document.getElementById('cmp-groups')){ if(++tries<25) setTimeout(init,200); return; }
+  if(p.dataset.wp) return; p.dataset.wp='1';
+  const secs=[...p.querySelectorAll(':scope > .section')].filter(s=>s.querySelector(':scope > h2.toggle'));
+  const bt=s=>s.querySelector(':scope > h2.toggle').textContent.replace('▸','').replace(/\s+/g,' ').trim();
+  const by=pre=>secs.filter(s=>bt(s).startsWith(pre));
+  // Posições: tira os cards da rosca e põe numa seção própria
+  const cmp=document.getElementById('cmp-sec');
+  const pos=document.createElement('div'); pos.id='wp-pos'; pos.className='section'; pos.innerHTML='<h2>Posições</h2>';
+  pos.appendChild(document.getElementById('cmp-groups')); cmp.insertAdjacentElement('afterend',pos);
+  const G={
+    comp:[p.querySelector(':scope > .stats'),...p.querySelectorAll(':scope > .result-row, :scope > .row3')],
+    pos:[cmp,pos],
+    hist:[subbar,...['Aportes','Saques','Borrows','Compras de BTC','Vendas de BTC','Repays'].flatMap(by)],
+    earn:[document.getElementById('earn-card'),...['Short de dívida','Borrow Earn','Short Earn'].flatMap(by)],
+    alt:[...by('Altcoins')]
+  };
+  const ALLSECS=new Set([...G.earn.slice(1),...G.alt]);
+  const NAMES=[['comp','Posição'],['pos','Composição'],['hist','Histórico'],['earn','Earn'],['alt','Altcoins']];
+  const bar=document.createElement('div'); bar.className='wp-tabs';
+  NAMES.forEach(([k,t])=>{const b=document.createElement('button'); b.className='subtab'; b.textContent=t; b.dataset.k=k; b.onclick=()=>show(k); bar.appendChild(b);});
+  p.insertBefore(bar,p.firstChild);
+  // chips do Histórico: só os 6 de histórico (índices da ordem original)
+  const HID=new Set([3,7,8,9]);
+  function chips(){ [...subbar.children].forEach((b,i)=>{ if(/desalavancagem/.test(b.textContent)) b.textContent=b.textContent.replace(/\s*\(desalavancagem\)/,''); b.classList.toggle('wp-hid',HID.has(i)); b.classList.toggle('wp-zero',/\(0\)/.test(b.textContent)); }); }
+  let curK='comp';
+  function show(k){
+    curK=k; const an=document.getElementById('aave-nets'); if(an&&!G.pos.includes(an)) G.pos.push(an);
+    try{ localStorage.setItem('dash:wp-tab',k); }catch(e){}
+    bar.querySelectorAll('.subtab').forEach(b=>b.classList.toggle('active',b.dataset.k===k));
+    Object.keys(G).forEach(g=>G[g].forEach(el=>{ if(!el) return; el.classList.toggle('wp-off',g!==k); if(ALLSECS.has(el)) el.classList.toggle('wp-all',g===k); }));
+    chips();
+  }
+  let first=null; try{ first=localStorage.getItem('dash:wp-tab'); }catch(e){}
+  if(!NAMES.some(n=>n[0]===first)) first='comp';
+  show(first);
+  if(![...secs].some(s=>!s.classList.contains('sub-hide')&&G.hist.includes(s))) subbar.children[0]&&subbar.children[0].click();
+  // rodapé de status vira ⓘ
+  const rpc=document.getElementById('rpc-status'), sh=document.getElementById('sheet-status'), nt=sh&&sh.nextElementSibling;
+  let info=null;
+  if(rpc&&sh&&nt){ info=document.createElement('details'); info.id='wp-info'; info.innerHTML='<summary>ⓘ Fontes e status</summary>'; rpc.insertAdjacentElement('beforebegin',info); info.appendChild(rpc); info.appendChild(sh); info.appendChild(nt); }
+  const mark=()=>{ chips(); { const an=document.getElementById('aave-nets'); if(an&&!G.pos.includes(an)) show(curK); } if(info) info.classList.toggle('wp-err',/^erro/i.test((rpc.textContent||'').trim())); };
+  if(typeof computeAndRender==='function'){ const o=computeAndRender; computeAndRender=async function(){ const r=await o.apply(this,arguments); try{ mark(); }catch(e){} return r; }; }
+  setInterval(mark,3000); mark();
+}
+init();
+})();
+</script>
+<style id="ui4-css">
+/* ===== geral (todas as telas) ===== */
+#ov-total-card .btc-r{display:none !important;}
+.tab-panel .add-trigger{background:rgba(61,220,132,.12);background:color-mix(in srgb,var(--green) 13%,transparent);border:1px solid rgba(61,220,132,.45);border:1px solid color-mix(in srgb,var(--green) 50%,transparent);color:var(--green);font-weight:600;font-size:13.5px;padding:9px 14px;border-radius:10px;}
+.tab-panel .add-trigger:hover{filter:brightness(1.1);color:var(--green);border-color:var(--green);}
+.tab-panel #btn-backfill-cambio{background:none;border:1px solid var(--line-strong);color:var(--text-dim);font-weight:500;}
+#ov-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+#ov-pair .ov-total{margin:0 !important;}
+#ov7{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px;background:var(--panel);}
+#ov7 > h2{font-size:13px !important;margin:0 0 4px !important;font-weight:600;}
+#ov7 *{font-size:12px;} #ov7 > h2{font-size:13px !important;}
+#ov7 .note,#ov7 p{margin:4px 0 0 !important;line-height:1.4;}
+#tab-aave #wp-pos > h2{display:none;}
+/* ===== celular ===== */
+@media (max-width:700px){
+  #ov-pair{gap:8px;}
+  #ov-pair .ov-total{padding:12px 13px !important;display:block !important;border-radius:12px;}
+  #ov-pair .ov-total .lbl{font-size:11.5px !important;margin-bottom:2px !important;}
+  #ov-pair .ov-total .val{font-size:clamp(17px,5.4vw,22px) !important;margin-top:2px !important;}
+  #ov-pair .ov-total .sub{font-size:10.5px !important;line-height:1.3;margin-top:6px !important;padding-top:6px !important;}
+  #ov-pair .ov-total .btc-r{margin-top:8px !important;}
+  #ov-pair .ov-total .btc-r .l{font-size:11px !important;margin-bottom:0 !important;}
+  #ov-pair .ov-total .btc-r .v{font-size:15px !important;}
+  #dst-card{padding:12px 14px !important;}
+  #dst-card .h b{font-size:13px !important;} #dst-card .h span{font-size:11px !important;}
+  #dst-card .dn,#dst-card .dn svg{width:104px !important;height:104px !important;}
+  #dst-card .dn .ct b{font-size:12px !important;} #dst-card .dn .ct small{font-size:8.5px !important;}
+  #dst-card .b{gap:12px !important;}
+  #dst-card .it{gap:8px !important;grid-template-columns:12px 1fr auto !important;}
+  #dst-card .it i{width:10px !important;height:10px !important;}
+  #dst-card .it .n{font-size:12.5px !important;} #dst-card .it .v{font-size:11px !important;}
+  #dst-card .it .p{font-size:15px !important;}
+  #tab-aave .stats,#tab-aave .result-row,#tab-aave .row3{grid-template-columns:1fr 1fr !important;gap:8px !important;margin-bottom:8px !important;}
+  #tab-aave .stats .stat:last-child:nth-child(odd){grid-column:1 / -1;}
+  #tab-aave .stat,#tab-aave .result{padding:11px 13px !important;margin:0 !important;border-radius:12px;min-width:0;}
+  #tab-aave .stat .lbl,#tab-aave .result .lbl{font-size:11.5px !important;margin-bottom:3px !important;}
+  #tab-aave .stat .val,#tab-aave .result .val{font-size:clamp(16px,5vw,21px) !important;margin-top:2px !important;}
+  #tab-aave .stat .sub,#tab-aave .result .sub{font-size:10.5px !important;line-height:1.3;margin-top:5px !important;padding-top:5px !important;}
+  /* chips do histórico em grade */
+  #tab-aave .subtabs{display:grid !important;grid-template-columns:repeat(3,1fr);gap:8px;margin:2px 0 14px;}
+  #tab-aave .subtabs .subtab{padding:9px 4px !important;font-size:12px !important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:12px !important;}
+  /* editar / remover ao lado, pequenos */
+  .tab-panel table:not(.nocard) tr{gap:3px 10px !important;padding:9px 2px !important;align-items:center !important;}
+  .tab-panel table:not(.nocard) td{font-size:12.5px !important;}
+  .tab-panel table:not(.nocard) td.brw-act{flex:0 0 auto !important;order:0 !important;margin:0 0 0 auto !important;display:flex !important;gap:4px;}
+  .tab-panel table:not(.nocard) td.brw-act button{padding:3px 8px !important;font-size:11px !important;border-radius:7px !important;margin:0 !important;}
+  /* Altcoins: linha resumida que expande */
+  #alt-tx tr{display:grid !important;grid-template-columns:auto 1fr auto auto;gap:4px 10px !important;align-items:center;padding:11px 4px !important;cursor:pointer;}
+  #alt-tx td::before{display:none !important;}
+  #alt-tx td[data-l="Data"]{grid-column:1;font-size:11.5px !important;color:var(--text-faint);}
+  #alt-tx td[data-l="Moeda"]{grid-column:2;font-weight:700;font-size:13.5px !important;}
+  #alt-tx td[data-l="Tipo"]{grid-column:3;padding:1px 9px !important;border-radius:999px;background:var(--panel-2) !important;font-size:11px !important;}
+  #alt-tx td[data-l="Valor"]{grid-column:4;text-align:right;font-weight:600;}
+  #alt-tx td[data-l="Valor"]::after{content:" ▾";color:var(--text-faint);font-size:10px;}
+  #alt-tx tr.alt-open td[data-l="Valor"]::after{content:" ▴";}
+  #alt-tx td[data-l="Qtd"],#alt-tx td[data-l="Preço"],#alt-tx td[data-l="Fonte"],#alt-tx td[data-l="Obs"],#alt-tx td:last-child{display:none !important;}
+  #alt-tx tr.alt-open td[data-l="Qtd"]:not(:empty),#alt-tx tr.alt-open td[data-l="Preço"]:not(:empty){display:block !important;grid-column:span 2;font-size:12px !important;padding-top:6px !important;border-top:1px solid var(--line) !important;}
+  #alt-tx tr.alt-open td[data-l="Fonte"]:not(:empty),#alt-tx tr.alt-open td[data-l="Obs"]:not(:empty){display:block !important;grid-column:1 / -1;order:0 !important;flex:none !important;width:auto !important;}
+  #alt-tx tr.alt-open td[data-l="Qtd"]::before,#alt-tx tr.alt-open td[data-l="Preço"]::before,#alt-tx tr.alt-open td[data-l="Fonte"]::before,#alt-tx tr.alt-open td[data-l="Obs"]::before{display:inline !important;content:attr(data-l) ": ";color:var(--text-faint);font-size:11px;}
+  #alt-tx tr.alt-open td:last-child{display:flex !important;grid-column:1 / -1;justify-content:flex-end;margin:0 !important;}
+}
+/* earn: sem textos grandes */
+#tab-aave .wp-earnsec > .section-body > .note:first-child{display:none !important;}
+</style>
+<script id="ui4-js">
+(function(){
+const $=id=>document.getElementById(id);
+// ---- Visão Geral: cards lado a lado e retorno 7 dias no topo ----
+function ov(){
+  const a=$('ov-total-card'), b=$('ov-total2'); if(!a||!b||$('ov-pair')) return;
+  const pair=document.createElement('div'); pair.id='ov-pair'; a.insertAdjacentElement('beforebegin',pair); pair.appendChild(a); pair.appendChild(b);
+  const sec=[...document.querySelectorAll('#tab-overview > .section')].find(s=>/^Retorno nos últimos 7 dias/.test((s.textContent||'').trim()));
+  if(sec){ sec.id='ov7'; sec.classList.remove('section'); pair.insertAdjacentElement('afterend',sec); }
+}
+// ---- Wallet: marca as seções do Earn ----
+function earn(){ document.querySelectorAll('#tab-aave > .section').forEach(s=>{ const h=s.querySelector(':scope > h2.toggle'); if(h&&/^(Short de dívida|Borrow Earn|Short Earn)/.test(h.textContent.trim())) s.classList.add('wp-earnsec'); }); }
+// ---- Altcoins: toca na linha para ver o resto ----
+document.addEventListener('click',e=>{ const tr=e.target.closest('#alt-tx tr'); if(!tr||e.target.closest('button,a')) return; if(window.innerWidth<=700) tr.classList.toggle('alt-open'); });
+ov(); earn(); setTimeout(()=>{ov();earn();},800); setTimeout(()=>{ov();earn();},2500);
+})();
+</script>
+<style id="ui5-css">
+#tab-aave .subtabs.wp-off{display:none !important;}
+@media (max-width:700px){
+  #alt-tx td[data-l="Data"],#alt-tx td[data-l="Moeda"],#alt-tx td[data-l="Tipo"],#alt-tx td[data-l="Valor"]{grid-row:1;}
+  #alt-tx tr.alt-open td[data-l="Qtd"]:not(:empty){grid-row:2;grid-column:1 / 3;}
+  #alt-tx tr.alt-open td[data-l="Preço"]:not(:empty){grid-row:2;grid-column:3 / 5;}
+  #alt-tx tr.alt-open td[data-l="Fonte"]:not(:empty){grid-row:3;}
+  #alt-tx tr.alt-open td[data-l="Obs"]:not(:empty){grid-row:4;}
+  #alt-tx tr.alt-open td:last-child{grid-row:5;}
+  #perf-big,#evo-big{font-size:30px !important;margin:2px 0 4px !important;}
+  #perf-card,#evo-card{padding:14px 16px !important;margin-bottom:16px !important;}
+  #perf-eyebrow,#evo-eyebrow{font-size:10.5px !important;}
+  #meta-card{padding:12px 14px !important;}
+}
+</style>
 </body>
 </html>
