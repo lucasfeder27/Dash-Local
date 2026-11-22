@@ -6264,5 +6264,29 @@ if(typeof computeAndRender==='function'){ const o=computeAndRender; computeAndRe
 setTimeout(()=>{try{notes();}catch(e){}},500);
 })();
 </script>
+<style id="ui8-css">
+/* ===== tema claro: fonte fina e elegante ===== */
+html[data-theme="light"]{--sans:"Sora","Figtree",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--mono:"Sora","Figtree",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+html[data-theme="light"] body{font-weight:300;letter-spacing:-.005em;}
+html[data-theme="light"] h1,html[data-theme="light"] h2,html[data-theme="light"] h3{font-weight:500;}
+html[data-theme="light"] .lbl,html[data-theme="light"] .sub,html[data-theme="light"] .note{font-weight:400;}
+html[data-theme="light"] .lbl{letter-spacing:.06em;}
+html[data-theme="light"] .val,html[data-theme="light"] .stat .val,html[data-theme="light"] .result .val,html[data-theme="light"] .ov-total .val,html[data-theme="light"] #perf-big,html[data-theme="light"] #evo-big,html[data-theme="light"] .ct b,html[data-theme="light"] .mc-v{font-weight:200 !important;letter-spacing:-.02em;}
+html[data-theme="light"] .val *,html[data-theme="light"] #perf-big *,html[data-theme="light"] #evo-big *{font-weight:inherit !important;}
+html[data-theme="light"] b,html[data-theme="light"] strong{font-weight:500;}
+html[data-theme="light"] button{font-weight:400;}
+html[data-theme="light"] .nt-title,html[data-theme="light"] #dst-card .it .n{font-weight:500;}
+html[data-theme="light"] #dst-card .it .p{font-weight:200;}
+html[data-theme="light"] #tab-aave .section table tbody tr td,html[data-theme="light"] td{font-weight:300;}
+html[data-theme="light"] #sidebar .sb-item.active,html[data-theme="light"] .tabbtn.active{font-weight:500;}
+html[data-theme="light"] .th-pill button.on{font-weight:500;}
+@media (max-width:700px){
+  html[data-theme="light"] #ov-pair .ov-total .val{font-size:14.5px !important;}
+  html[data-theme="light"] #dst-card .it .n{font-size:12px !important;}
+}
+</style>
+<script id="ui8-js">
+(function(){ if(document.getElementById('sora-font')) return; const l=document.createElement('link'); l.id='sora-font'; l.rel='stylesheet'; l.href='https://fonts.googleapis.com/css2?family=Sora:wght@100;200;300;400;500;600&display=swap'; document.head.appendChild(l); })();
+</script>
 </body>
 </html>
