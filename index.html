@@ -3185,9 +3185,9 @@ if(rr.length>=2){
 }
 function updPM(){
   const v=$('btcpm-val'), s=$('btcpm-sub'); if(!v) return;
-  const pm=live.pmBtc, p=live.btcPrice; if(!(pm>0)||!(p>0)){v.textContent='--'; v.className='val'; return;}
+  const pm=live.pmBtc, p=live.btcPrice; if(!(pm>0)||!(p>0)){v.textContent='--'; v.className='val'; s.textContent=''; return;}
   const d=(p/pm-1)*100; v.textContent=(d>=0?'+':'')+d.toFixed(2).replace('.',',')+'%'; v.className='val '+(d>=0?'pos':'neg');
-  s.textContent='BTC hoje '+fmtUSD(p)+' · seu PM '+fmtUSD(pm);
+  s.textContent='PM - '+fmtUSD(pm);
 }
 // ---- 2) Composição como no modelo ----
 const oldC=$('donut')&&$('donut').closest('.section'), oldW=$('wallet-eth')&&$('wallet-eth').closest('.section');
@@ -6164,7 +6164,8 @@ html[data-theme="light"] #btn-backfill-cambio,html[data-theme="light"] #btn-back
 .wp7-wide .val{font-size:30px !important;}
 #tab-aave .mini-int{font-size:10.5px;color:var(--text-faint);margin-top:6px;line-height:1.2;}
 #tab-aave .mini-int #stat-apy-topo{display:inline !important;font-size:10.5px !important;font-weight:500 !important;color:var(--text-dim) !important;margin:0 !important;letter-spacing:0 !important;font-family:inherit !important;}
-#tab-aave #btcpm-card .sub,#tab-aave #btcpm-card .info{display:none !important;}
+#tab-aave #btcpm-card .info{display:none !important;}
+#tab-aave #btcpm-card .sub{display:block !important;}
 @media (min-width:701px){#tab-aave > .stats.wp7 > .wp7-vs{grid-column:auto;}}
 @media (max-width:700px){
   #tab-aave > .stats.wp7{grid-template-columns:repeat(2,1fr) !important;gap:10px;}
