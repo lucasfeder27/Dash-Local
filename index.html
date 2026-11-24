@@ -5895,10 +5895,12 @@ function init(){
     pos:[cmp,pos],
     hist:[subbar,...['Aportes','Saques','Borrows','Compras de BTC','Vendas de BTC','Repays'].flatMap(by)],
     earn:[document.getElementById('earn-card'),...['Short de dívida','Borrow Earn','Short Earn'].flatMap(by)],
-    alt:[...by('Altcoins')]
+    alt:[...by('Altcoins')],
+    pools:[]
   };
+  const plp=document.createElement('div'); plp.id='pl-principal'; plp.className='section'; plp.innerHTML='<h2>Pools <span class="n pl-n" data-w="principal"></span></h2>'; p.appendChild(plp); G.pools=[plp];
   const ALLSECS=new Set([...G.earn.slice(1),...G.alt]);
-  const NAMES=[['comp','Posição'],['pos','Composição'],['hist','Histórico'],['earn','Earn'],['alt','Altcoins']];
+  const NAMES=[['comp','Posição'],['pos','Composição'],['hist','Histórico'],['earn','Earn'],['alt','Altcoins'],['pools','Pools']];
   const bar=document.createElement('div'); bar.className='wp-tabs';
   NAMES.forEach(([k,t])=>{const b=document.createElement('button'); b.className='subtab'; b.textContent=t; b.dataset.k=k; b.onclick=()=>show(k); bar.appendChild(b);});
   p.insertBefore(bar,p.firstChild);
@@ -6150,6 +6152,8 @@ html:not([data-theme="light"]):not([data-theme="game"]){--bg:#08090a;--panel:#0f
 #btn-backfill-cambio:hover,#btn-backfill-cambioM:hover{filter:brightness(1.12);border-color:#6aa6ff !important;}
 html[data-theme="light"] #btn-backfill-cambio,html[data-theme="light"] #btn-backfill-cambioM{color:#2f6fd6 !important;border-color:#2f6fd680 !important;background:#2f6fd61a !important;}
 /* ===== Wallet Principal: cartões reorganizados ===== */
+#tab-aave > .stats.wp7.wp-off,#tab-aave .wp-off{display:none !important;}
+
 #tab-aave > .stats.wp7{display:grid !important;grid-template-columns:repeat(4,1fr) !important;gap:12px;}
 #tab-aave > .stats.wp7 > .stat,#tab-aave > .stats.wp7 > .result{margin:0 !important;min-width:0;}
 #tab-aave > .stats.wp7 > .wp7-wide{grid-column:1 / -1;}
@@ -6287,6 +6291,342 @@ html[data-theme="light"] .th-pill button.on{font-weight:500;}
 </style>
 <script id="ui8-js">
 (function(){ if(document.getElementById('sora-font')) return; const l=document.createElement('link'); l.id='sora-font'; l.rel='stylesheet'; l.href='https://fonts.googleapis.com/css2?family=Sora:wght@100;200;300;400;500;600&display=swap'; document.head.appendChild(l); })();
+</script>
+<style id="ui9-css">
+.pl-sum{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+.pl-sum > div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0;}
+.pl-sum .l,.pl-st .l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);font-weight:600;}
+.pl-sum .v{font-size:20px;font-weight:600;margin-top:4px;white-space:nowrap;}
+.pl-sum .s{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+.pl-card{background:var(--panel);border:1px solid var(--line-strong);border-radius:16px;padding:16px 18px;margin-bottom:14px;}
+.pl-card.out{border-color:color-mix(in srgb,var(--red) 55%,var(--line-strong));}
+.pl-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.pl-ic{display:inline-flex;}
+.pl-ic i{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:11px;font-weight:700;border:2px solid var(--panel);background:var(--btc);color:#111;}
+.pl-ic i + i{margin-left:-9px;background:#2775ca;color:#fff;}
+.pl-name{font-size:18px;font-weight:600;letter-spacing:-.01em;}
+.pl-chip{font-size:10.5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--text-dim);white-space:nowrap;}
+.pl-chip.in{color:var(--green);border-color:color-mix(in srgb,var(--green) 50%,transparent);background:color-mix(in srgb,var(--green) 12%,transparent);font-weight:600;}
+.pl-chip.out{color:var(--red);border-color:color-mix(in srgb,var(--red) 50%,transparent);background:color-mix(in srgb,var(--red) 12%,transparent);font-weight:600;}
+.pl-chip.fee{color:var(--accent);}
+.pl-sts{display:grid;grid-template-columns:repeat(6,1fr);gap:10px 14px;margin-top:14px;}
+.pl-st{min-width:0;}
+.pl-st .v{font-size:16px;font-weight:600;margin-top:3px;white-space:nowrap;}
+.pl-st .s{font-size:11px;color:var(--text-faint);margin-top:1px;}
+.pl-pos{color:var(--green);}.pl-neg{color:var(--red);}
+.pl-rg{margin-top:16px;}
+.pl-bar{position:relative;height:10px;border-radius:999px;background:var(--panel-2);margin:40px 0 6px;}
+.pl-band{position:absolute;top:0;bottom:0;border-radius:999px;background:color-mix(in srgb,var(--green) 55%,transparent);}
+.pl-card.out .pl-band{background:color-mix(in srgb,var(--red) 55%,transparent);}
+.pl-mk{position:absolute;top:-6px;width:3px;height:22px;border-radius:2px;background:var(--text);transform:translateX(-50%);}
+.pl-mk.lft b{left:-4px;transform:none;}.pl-mk.rgt b{left:auto;right:-4px;transform:none;}
+.pl-mk b{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:600;white-space:nowrap;color:var(--text);background:var(--panel);padding:1px 6px;border-radius:6px;border:1px solid var(--line-strong);}
+.pl-lb{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text-dim);margin-top:8px;}
+.pl-lb div{min-width:0;}
+.pl-lb .r{text-align:right;}
+.pl-lb b{display:block;font-size:14px;color:var(--text);font-weight:600;}
+.pl-act{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+.pl-act button{background:none;border:1px solid var(--line-strong);color:var(--text-dim);border-radius:9px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:inherit;}
+.pl-act button.g{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,transparent);}
+.pl-act button.b{color:#6aa6ff;border-color:color-mix(in srgb,#6aa6ff 45%,transparent);}
+.pl-act button.r{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,transparent);}
+.pl-obs{font-size:12.5px;color:var(--text-dim);margin-top:10px;}
+.pl-form select{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:7px 9px;font-size:13px;width:130px;font-family:var(--mono);}
+.pl-form .pl-msg{width:100%;font-size:12.5px;color:var(--red);}
+.pl-empty{color:var(--text-faint);font-size:13px;padding:14px 4px;}
+.pl-h3{font-size:13px;color:var(--text-dim);margin:18px 0 10px;font-weight:600;}
+@media (max-width:700px){
+  .pl-sum{grid-template-columns:1fr 1fr;gap:8px;}.pl-sum .v{font-size:16px;}.pl-sum > div:last-child{grid-column:1 / -1;}
+  .pl-sts{grid-template-columns:1fr 1fr;}
+  .pl-card{padding:14px;}.pl-name{font-size:16px;}
+  .pl-form select{width:100% !important;}
+  .pl-act button{flex:1;}
+}
+
+.pl-chip.live{color:var(--green);border-color:color-mix(in srgb,var(--green) 40%,transparent);}
+.pl-chip.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;animation:plpulse 1.6s ease-in-out infinite;}
+.pl-chip.warn{color:#e0a030;border-color:color-mix(in srgb,#e0a030 45%,transparent);}
+@keyframes plpulse{0%,100%{opacity:1}50%{opacity:.25}}
+.pl-adv{width:100%;border:1px dashed var(--line-strong);border-radius:10px;padding:8px 12px;}
+.pl-adv summary{cursor:pointer;font-size:12.5px;color:var(--text-dim);}
+.pl-adv .pl-advb{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;}
+.pl-hint{width:100%;font-size:12px;color:var(--text-faint);}
+.pl-imp{background:rgba(106,166,255,.13);border:1px solid rgba(106,166,255,.5) !important;color:#6aa6ff !important;}
+@media (max-width:700px){.pl-adv .pl-advb .fld,.pl-adv .pl-advb input{width:100%;}}
+</style>
+<script id="ui9-js">
+(function(){
+const $=id=>document.getElementById(id);
+const SP=()=>window.__sp||{b(){},e(){}};
+const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY='pools', LS='dash:pools';
+const cfgRow=()=>((window.RAWX&&window.RAWX.cfg)||[]).find(r=>r.chave===KEY);
+let POOLS=null, LASTS=null;
+function load(){ let s=null; const r=cfgRow(); if(r&&r.valor) s=r.valor; else { try{ s=localStorage.getItem(LS); }catch(e){} }
+  try{ POOLS=(JSON.parse(s||'[]')||[]).filter(x=>x&&x.id); }catch(e){ POOLS=[]; } LASTS=s; }
+function sync(){ const r=cfgRow(); const s=r&&r.valor; if(POOLS===null||(s&&s!==LASTS)) load(); }
+async function save(){ const s=JSON.stringify(POOLS); LASTS=s; try{ localStorage.setItem(LS,s); }catch(e){}
+  const r=cfgRow(); const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'x-dash-key':SCRIPT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({type:'put',sheet:'Config',row:r?r._row:undefined,fields:{chave:KEY,valor:s}})});
+  const j=await res.json(); if(!j.ok) throw new Error(j.error||'falha ao salvar'); if(r) r.valor=s; else { try{ await loadFromSheet(); }catch(e){} } }
+// ---- preços ----
+const PC={}; const ALIAS={CBBTC:'BTC',WBTC:'BTC',TBTC:'BTC',LBTC:'BTC',WETH:'ETH',CBETH:'ETH',WSTETH:'ETH',STETH:'ETH',WSOL:'SOL',MSOL:'SOL',JITOSOL:'SOL',WBNB:'BNB',WPOL:'POL',WMATIC:'POL'};
+const isStable=s=>/^(USDC|USDT|DAI|USDBC|USDC\.E|USDS|USD₮0|USDT0|FDUSD|LUSD)$/i.test(String(s||'').trim());
+const base=s=>{ s=String(s||'').toUpperCase().trim(); return ALIAS[s]||s; };
+async function price(sym){ const b=base(sym); if(!b) return 0; if(isStable(b)) return 1;
+  if(b==='BTC'){ const p=(typeof live!=='undefined'&&live.btcPrice)||0; if(p) return p; }
+  const c=PC[b]; if(c&&Date.now()-c.t<45000) return c.p;
+  try{ const r=await fetch('https://api.binance.com/api/v3/ticker/price?symbol='+encodeURIComponent(b)+'USDT'); if(r.ok){ const j=await r.json(); const p=+j.price; if(p>0){ PC[b]={p,t:Date.now()}; return p; } } }catch(e){}
+  return c?c.p:0; }
+// ---- formatação ----
+const num=v=>{ const n=parseFloat(String(v==null?'':v).replace(',','.')); return isNaN(n)?0:n; };
+function px(v){ v=+v||0; const d=v>=100?2:v>=1?3:v>=0.01?5:8; return 'US$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:d>2&&v<100?d:2,maximumFractionDigits:d}); }
+const usd=v=>(typeof fmtUSD==='function')?fmtUSD(+v||0):px(v);
+const pct=(v,s)=>(v>=0&&s!==false?'+':'')+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+const fdate=d=>{ if(!d) return ''; const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(d); return m?m[3]+'/'+m[2]+'/'+m[1]:d; };
+// ================= leitura on-chain (Uniswap v3 / Pancake v3) =================
+const RPC_BASE=(typeof RPCS!=='undefined'&&RPCS)||['https://mainnet.base.org','https://base.publicnode.com'];
+const UNI_NPM='0xC36442b4a4522E871399CD717aBDD847Ab11FE88', UNI_F='0x1F98431c8aD98523631AE4a59f267346ea31F984';
+const PAN_NPM='0x46A15B0b27311cedF172AB29E4f4766fbE7F4364', PAN_F='0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865';
+const NET={
+ 'Base':{u:RPC_BASE,'Uniswap v3':[ '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1','0x33128a8fC17869897dcE68Ed026d694621f6FDfD'],'Pancake v3':[PAN_NPM,PAN_F]},
+ 'Ethereum':{u:['https://ethereum-rpc.publicnode.com','https://eth.llamarpc.com'],'Uniswap v3':[UNI_NPM,UNI_F],'Pancake v3':[PAN_NPM,PAN_F]},
+ 'Arbitrum':{u:['https://arb1.arbitrum.io/rpc','https://arbitrum-one-rpc.publicnode.com'],'Uniswap v3':[UNI_NPM,UNI_F],'Pancake v3':[PAN_NPM,PAN_F]},
+ 'Optimism':{u:['https://mainnet.optimism.io','https://optimism-rpc.publicnode.com'],'Uniswap v3':[UNI_NPM,UNI_F]},
+ 'Polygon':{u:['https://polygon-bor-rpc.publicnode.com','https://polygon-rpc.com'],'Uniswap v3':[UNI_NPM,UNI_F]},
+ 'BNB':{u:['https://bsc-rpc.publicnode.com','https://bsc-dataseed.binance.org'],'Uniswap v3':['0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613','0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7'],'Pancake v3':[PAN_NPM,PAN_F]}
+};
+const canChain=(rede,prot)=>!!(NET[rede]&&NET[rede][prot]);
+async function ethCall(rede,to,data,from){
+  let err; for(const u of NET[rede].u){ try{
+    const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_call',params:[Object.assign({to,data},from?{from}:{}),'latest']})});
+    const j=await r.json(); if(j.error) throw new Error(j.error.message||'erro rpc'); if(typeof j.result==='string') return j.result;
+  }catch(e){ err=e; } } throw err||new Error('RPC indisponível'); }
+const W=(h,i)=>BigInt('0x'+(h.replace(/^0x/,'').slice(i*64,i*64+64)||'0'));
+const S=x=>x>=(1n<<255n)?x-(1n<<256n):x;
+const hx=n=>BigInt(n).toString(16).padStart(64,'0');
+const ad=a=>String(a).toLowerCase().replace(/^0x/,'').padStart(64,'0');
+const adr=w=>'0x'+w.toString(16).padStart(40,'0');
+function str(h){ h=h.replace(/^0x/,''); if(h.length>=128){ try{ const len=Number(BigInt('0x'+h.slice(64,128))); const b=h.slice(128,128+len*2); let o=''; for(let i=0;i<b.length;i+=2) o+=String.fromCharCode(parseInt(b.slice(i,i+2),16)); return o; }catch(e){} }
+  let o=''; for(let i=0;i<64&&i<h.length;i+=2){ const c=parseInt(h.slice(i,i+2),16); if(c) o+=String.fromCharCode(c); } return o; }
+const TK={};
+async function tok(rede,a){ const k=rede+a.toLowerCase(); if(TK[k]) return TK[k];
+  const [d,s]=await Promise.all([ethCall(rede,a,'0x313ce567'),ethCall(rede,a,'0x95d89b41')]); return TK[k]={dec:Number(W(d,0)),sym:str(s)||'?'}; }
+async function readPos(rede,prot,id){
+  const [npm,fac]=NET[rede][prot]; const idh=hx(id);
+  const ph=await ethCall(rede,npm,'0x99fbab88'+idh);
+  const t0=adr(W(ph,2)), t1=adr(W(ph,3)), fee=Number(W(ph,4)), tl=Number(S(W(ph,5))), tu=Number(S(W(ph,6))), liq=W(ph,7);
+  const owner=adr(W(await ethCall(rede,npm,'0x6352211e'+idh),0));
+  let o0=W(ph,10), o1=W(ph,11);
+  try{ const MAX='f'.repeat(32).padStart(64,'0'); const ch=await ethCall(rede,npm,'0xfc6f7865'+idh+ad(owner)+MAX+MAX,owner); o0=W(ch,0); o1=W(ch,1); }catch(e){}
+  const [T0,T1]=await Promise.all([tok(rede,t0),tok(rede,t1)]);
+  const pool=adr(W(await ethCall(rede,fac,'0x1698ee82'+ad(t0)+ad(t1)+hx(fee)),0));
+  if(/^0x0+$/.test(pool)) throw new Error('pool não encontrada');
+  const sl=await ethCall(rede,pool,'0x3850c7bd'); const sqrtP=Number(W(sl,0))/2**96;
+  const sA=Math.pow(1.0001,tl/2), sB=Math.pow(1.0001,tu/2), sP=Math.min(Math.max(sqrtP,sA),sB), L=Number(liq);
+  const a0=L*(1/sP-1/sB)/10**T0.dec, a1=L*(sP-sA)/10**T1.dec;
+  const f0=Number(o0)/10**T0.dec, f1=Number(o1)/10**T1.dec;
+  const hp=sqrtP*sqrtP*10**(T0.dec-T1.dec);                  // token1 por token0 (humano)
+  const lo=Math.pow(1.0001,tl)*10**(T0.dec-T1.dec), hi=Math.pow(1.0001,tu)*10**(T0.dec-T1.dec);
+  const s0=isStable(T0.sym), s1=isStable(T1.sym);
+  let r;
+  if(s0&&!s1){ r={base:T1.sym,quote:T0.sym,p:1/hp,min:1/hi,max:1/lo,aB:a1,aQ:a0,fB:f1,fQ:f0}; }
+  else { r={base:T0.sym,quote:T1.sym,p:hp,min:lo,max:hi,aB:a0,aQ:a1,fB:f0,fQ:f1}; }
+  const qUsd=isStable(r.quote)?1:await price(r.quote);
+  r.qUsd=qUsd; r.pUsd=r.p*qUsd; r.valueUsd=(r.aB*r.p+r.aQ)*qUsd; r.pendUsd=(r.fB*r.p+r.fQ)*qUsd;
+  r.inr=sqrtP>=sA&&sqrtP<=sB; r.fee=fee/10000; r.liq=L>0; r.owner=owner; r.id=String(id); r.t=Date.now();
+  return r; }
+async function listPositions(rede,prot,owner){
+  const [npm]=NET[rede][prot]; const n=Number(W(await ethCall(rede,npm,'0x70a08231'+ad(owner)),0)); const ids=[];
+  for(let i=0;i<Math.min(n,60);i++){ ids.push(String(W(await ethCall(rede,npm,'0x2f745c59'+ad(owner)+hx(i)),0))); }
+  return ids; }
+// ---- dados ao vivo (cache) ----
+const LIVE={}, LERR={};
+async function plLive(p){ if(!p.nft||p.encerrada||!canChain(p.rede,p.protocolo)) return;
+  const c=LIVE[p.id]; if(c&&Date.now()-c.t<45000) return;
+  try{ SP().b(); LIVE[p.id]=await readPos(p.rede,p.protocolo,p.nft); LERR[p.id]=null; }catch(e){ LERR[p.id]=e.message||String(e); } finally{ SP().e(); } }
+// ---- matemática manual (sem ID) ----
+function calc(p,cp){
+  const a=+p.min,b=+p.max,V0=+p.valor,P0=+p.entrada||cp;
+  const out={inr:cp>=a&&cp<=b,dmin:a>0&&cp>0?(a/cp-1)*100:0,dmax:b>0&&cp>0?(b/cp-1)*100:0,val:null};
+  if(a>0&&b>a&&V0>0&&P0>0&&cp>0){
+    const sa=Math.sqrt(a),sb=Math.sqrt(b),s0=Math.sqrt(Math.min(Math.max(P0,a),b));
+    const L=V0/(P0*(1/s0-1/sb)+(s0-sa)); const s=Math.sqrt(Math.min(Math.max(cp,a),b));
+    out.val=(L*(1/s-1/sb))*cp+L*(s-sa); }
+  return out; }
+// visão efetiva de uma pool (ao vivo quando há ID)
+function eff(p,P){ const L=LIVE[p.id]; const quote=(L&&L.quote)||p.quote||'USDC';
+  if(L){ return {live:true,ativo:L.base,quote,taxa:L.fee,min:L.min,max:L.max,cp:L.p,cpUsd:L.pUsd,pend:L.pendUsd,val:L.valueUsd,inr:L.inr,dmin:(L.min/L.p-1)*100,dmax:(L.max/L.p-1)*100}; }
+  const cp=(+p.manual>0?+p.manual:P[p.ativo])||0, c=calc(p,cp);
+  return {live:false,ativo:p.ativo,quote,taxa:+p.taxa||0,min:+p.min,max:+p.max,cp,cpUsd:cp,pend:+p.pendentes||0,val:c.val,inr:c.inr,dmin:c.dmin,dmax:c.dmax}; }
+// ---- cartão ----
+function card(p,P){
+  const e=eff(p,P), open=!p.encerrada, tot=(+p.colhidas||0)+e.pend;
+  const days=p.data?Math.max(1,(Date.now()-new Date(p.data+'T12:00:00'))/864e5):0;
+  const apr=(days&&+p.valor>0)?tot/(+p.valor)/days*365*100:null;
+  const pnl=e.val!=null?e.val+tot-(+p.valor):null;
+  const a=e.min,b=e.max,cp=e.cp, lo=Math.min(a,cp||a)*0.97, hi=Math.max(b,cp||b)*1.03, pos=x=>Math.max(0,Math.min(100,(x-lo)/(hi-lo)*100));
+  const st=(l,v,s,cls)=>'<div class="pl-st"><div class="l">'+l+'</div><div class="v '+(cls||'')+'">'+v+'</div>'+(s?'<div class="s">'+s+'</div>':'')+'</div>';
+  const q=e.quote||'USDC', pf=x=>q==='USDC'||isStable(q)?px(x):(+x).toLocaleString('pt-BR',{maximumFractionDigits:6})+' '+E(q);
+  let h='<div class="pl-card'+(open&&cp&&!e.inr?' out':'')+'" data-id="'+p.id+'"><div class="pl-hd"><span class="pl-ic"><i>'+E(base(e.ativo).slice(0,1))+'</i><i>'+E(String(q).slice(0,1))+'</i></span><span class="pl-name">'+E(e.ativo)+' / '+E(q)+'</span>'
+   +(e.taxa?'<span class="pl-chip fee">'+e.taxa.toLocaleString('pt-BR')+'%</span>':'')
+   +'<span class="pl-chip">'+E(p.protocolo||'Pool')+(p.rede?' · '+E(p.rede):'')+(p.nft?' · #'+E(p.nft):'')+'</span>'
+   +(open?(cp?'<span class="pl-chip '+(e.inr?'in':'out')+'">'+(e.inr?'NO RANGE':'FORA DO RANGE')+'</span>':'<span class="pl-chip">sem preço</span>'):'<span class="pl-chip">ENCERRADA</span>')
+   +(open&&p.nft?(e.live?'<span class="pl-chip live">ao vivo</span>':'<span class="pl-chip warn" title="'+E(LERR[p.id]||'')+'">leitura falhou</span>'):'')+'</div>';
+  h+='<div class="pl-sts">'
+   +st('Valor atual',e.val!=null&&open?usd(e.val):'—',e.val!=null&&open?(e.live?'da blockchain':'estimado'):'')
+   +st('Depositado',usd(+p.valor||0),p.data?'desde '+fdate(p.data):'')
+   +st('Resultado',pnl!=null&&open?usd(pnl):'—',pnl!=null&&open&&+p.valor>0?pct(pnl/(+p.valor)*100):'incl. taxas',pnl==null?'':(pnl>=0?'pl-pos':'pl-neg'))
+   +st('Taxas recolhidas',usd(+p.colhidas||0),'já no bolso')
+   +st('Taxas a recolher',usd(e.pend),e.live?'ao vivo':'ainda no pool',(e.pend>0?'pl-pos':''))
+   +st('APR das taxas',apr!=null?pct(apr,false):'—',tot>0?'total '+usd(tot):'')+'</div>';
+  if(a>0&&b>a){
+    h+='<div class="pl-rg"><div class="pl-bar"><div class="pl-band" style="left:'+pos(a)+'%;width:'+Math.max(1,pos(b)-pos(a))+'%"></div>'
+     +(cp?'<div class="pl-mk'+(pos(cp)<14?' lft':pos(cp)>86?' rgt':'')+'" style="left:'+pos(cp)+'%"><b>'+pf(cp)+'</b></div>':'')+'</div>'
+     +'<div class="pl-lb"><div>Mín<b>'+pf(a)+'</b>'+(cp?'<span class="'+(e.dmin>=0?'pl-pos':'pl-neg')+'">'+pct(e.dmin)+'</span> do preço atual':'')+'</div>'
+     +'<div class="r">Máx<b>'+pf(b)+'</b>'+(cp?'<span class="'+(e.dmax>=0?'pl-pos':'pl-neg')+'">'+pct(e.dmax)+'</span> do preço atual':'')+'</div></div></div>';
+  }
+  if(p.obs) h+='<div class="pl-obs">'+E(p.obs)+'</div>';
+  h+='<div class="pl-act">'+(open&&e.pend>0?'<button class="g" data-a="col">Registrar coleta</button>':'')+'<button class="b" data-a="ed">Editar</button><button data-a="'+(open?'enc':'reab')+'">'+(open?'Encerrar':'Reabrir')+'</button><button class="r" data-a="rm">Remover</button></div></div>';
+  return h; }
+// ---- montagem por wallet ----
+const MOUNTS=[]; const ASSETS=['BTC','cbBTC','WBTC','ETH','SOL','HYPE','LINK','AVAX','BNB','AERO','UNI','ARB','OP','POL'];
+const PROTS=['Uniswap v3','Pancake v3','Uniswap v4','Aerodrome','Orca','Raydium','Meteora','Outro'], REDES=['Base','Ethereum','Arbitrum','Optimism','Polygon','BNB','Solana','Outra'];
+function mount(el,wallet){
+  if(!el||el.dataset.pl) return; el.dataset.pl='1';
+  const id='pl-'+wallet;
+  el.insertAdjacentHTML('beforeend','<div class="pl-sumw"></div>'
+   +'<button class="add-trigger" data-label="+ Adicionar pool" type="button">+ Adicionar pool</button>'
+   +'<div class="add-form collapsed pl-form">'
+   +'<div class="fld"><label>Protocolo</label><select class="f-prot">'+PROTS.map(a=>'<option>'+a+'</option>').join('')+'</select></div>'
+   +'<div class="fld"><label>Rede</label><select class="f-rede">'+REDES.map(a=>'<option>'+a+'</option>').join('')+'</select></div>'
+   +'<div class="fld"><label>ID da posição (NFT)</label><input type="text" inputmode="numeric" class="f-nft" placeholder="ex.: 1234567 — lê tudo sozinho"></div>'
+   +'<div class="pl-hint f-hint">Com o ID, o painel lê da blockchain, em tempo real: ativo, taxa do pool, range, valor e taxas a recolher (Uniswap v3 e Pancake v3). Sem ID, preencha o range abaixo.</div>'
+   +'<div class="fld"><label>Ativo (x USDC)</label><input list="'+id+'-dl" class="f-ativo" placeholder="cbBTC"><datalist id="'+id+'-dl">'+ASSETS.map(a=>'<option value="'+a+'">').join('')+'</datalist></div>'
+   +'<div class="fld"><label>Range mín (USDC)</label><input type="number" step="any" class="f-min" placeholder="61167.6"></div>'
+   +'<div class="fld"><label>Range máx (USDC)</label><input type="number" step="any" class="f-max" placeholder="81865.7"></div>'
+   +'<div class="fld"><label>Valor depositado (US$)</label><input type="number" step="any" class="f-val" placeholder="vazio = valor atual"></div>'
+   +'<div class="fld"><label>Data de abertura</label><input type="date" class="f-data"></div>'
+   +'<div class="fld"><label>Taxas já recolhidas (US$)</label><input type="number" step="any" class="f-col" placeholder="0.00"></div>'
+   +'<details class="pl-adv"><summary>Avançado (só para pools sem ID)</summary><div class="pl-advb">'
+   +'<div class="fld"><label>Taxa do pool (%)</label><input type="number" step="any" class="f-taxa" placeholder="0.30"></div>'
+   +'<div class="fld"><label>Taxas a recolher (US$)</label><input type="number" step="any" class="f-pen" placeholder="0.00"></div>'
+   +'<div class="fld"><label>Preço na entrada</label><input type="number" step="any" class="f-ent" placeholder="vazio = preço atual"></div>'
+   +'<div class="fld"><label>Preço manual do ativo</label><input type="number" step="any" class="f-man" placeholder="só se não houver cotação"></div></div></details>'
+   +'<div class="fld" style="flex:1 1 100%"><label>Observação</label><input type="text" class="f-obs" placeholder="opcional" style="width:100%"></div>'
+   +'<button type="button" class="f-save">Adicionar</button><button type="button" class="pl-imp f-imp">Importar da carteira</button><button type="button" class="f-cancel" style="display:none">Cancelar</button><div class="pl-msg"></div></div>'
+   +'<div class="pl-list"></div>');
+  const M={el,wallet,editing:null,sum:el.querySelector('.pl-sumw'),trig:el.querySelector('.add-trigger'),form:el.querySelector('.add-form'),list:el.querySelector('.pl-list'),msg:el.querySelector('.pl-msg')};
+  const f=c=>M.form.querySelector('.f-'+c);
+  M.trig.onclick=()=>{ if(M.form.classList.contains('collapsed')){ reset(); open(); } else close(); };
+  function open(){ M.form.classList.remove('collapsed'); M.trig.textContent='− Fechar'; }
+  function close(){ M.form.classList.add('collapsed'); M.trig.textContent=M.trig.dataset.label; M.editing=null; reset(); }
+  function reset(){ ['nft','ativo','taxa','min','max','val','ent','col','pen','man','obs'].forEach(k=>f(k).value=''); f('data').value=new Date().toISOString().slice(0,10); f('prot').selectedIndex=0; f('rede').selectedIndex=0; f('save').textContent='Adicionar'; f('cancel').style.display='none'; M.msg.textContent=''; }
+  M.fill=p=>{ M.editing=p.id; f('nft').value=p.nft||''; f('ativo').value=p.ativo||''; f('prot').value=p.protocolo||PROTS[0]; f('rede').value=p.rede||REDES[0]; f('taxa').value=p.taxa||''; f('min').value=p.min||''; f('max').value=p.max||''; f('val').value=p.valor||''; f('ent').value=p.entrada||''; f('data').value=p.data||''; f('col').value=p.colhidas||''; f('pen').value=p.pendentes||''; f('man').value=p.manual||''; f('obs').value=p.obs||''; f('save').textContent='Salvar alterações'; f('cancel').style.display=''; open(); el.scrollIntoView({behavior:'smooth',block:'start'}); };
+  f('cancel').onclick=close;
+  const mk=(o,r)=>{ const x=Object.assign({},o); if(r){ x.ativo=r.base; x.quote=r.quote; x.taxa=r.fee; x.min=r.min; x.max=r.max; if(!(+x.valor>0)) x.valor=+r.valueUsd.toFixed(2); if(!(+x.entrada>0)) x.entrada=r.pUsd?+r.p:0; } return x; };
+  f('save').onclick=async()=>{
+    const nft=f('nft').value.trim().replace(/^#/,''), prot=f('prot').value, rede=f('rede').value;
+    let ativo=f('ativo').value.trim(), mn=num(f('min').value), mx=num(f('max').value), v=num(f('val').value);
+    let o={wallet,nft,ativo,protocolo:prot,rede,taxa:num(f('taxa').value),min:mn,max:mx,valor:v,entrada:num(f('ent').value),data:f('data').value,colhidas:num(f('col').value),pendentes:num(f('pen').value),manual:num(f('man').value),obs:f('obs').value.trim()};
+    let r=null;
+    if(nft){
+      if(!/^\d+$/.test(nft)){ M.msg.textContent='O ID da posição deve ser só números.'; return; }
+      if(!canChain(rede,prot)){ M.msg.textContent='Leitura automática não existe para '+prot+' em '+rede+'. Apague o ID e preencha o range.'; return; }
+      M.msg.style.color='var(--text-dim)'; M.msg.textContent='Lendo a posição na blockchain…';
+      try{ SP().b(); r=await readPos(rede,prot,nft); }catch(e){ M.msg.style.color=''; M.msg.textContent='Não consegui ler essa posição ('+(e.message||e)+'). Confira o ID, o protocolo e a rede.'; return; } finally{ SP().e(); }
+      o=mk(o,r);
+    } else {
+      if(!ativo){ M.msg.style.color=''; M.msg.textContent='Informe o ativo (ex.: cbBTC) ou o ID da posição.'; return; }
+      if(!(mn>0&&mx>mn)){ M.msg.style.color=''; M.msg.textContent='Informe o range: o máximo precisa ser maior que o mínimo.'; return; }
+      if(!(v>0)){ M.msg.style.color=''; M.msg.textContent='Informe o valor depositado em US$.'; return; }
+      if(!(o.entrada>0)) o.entrada=o.manual||await price(ativo)||0;
+    }
+    M.msg.style.color=''; M.msg.textContent='Salvando…'; sync();
+    try{
+      let pid;
+      if(M.editing){ const p=POOLS.find(x=>x.id===M.editing); if(p){ Object.assign(p,o); pid=p.id; } }
+      else { pid='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); POOLS.push(Object.assign({id:pid},o)); }
+      if(r&&pid) LIVE[pid]=r;
+      await save(); close(); render();
+    }catch(e){ M.msg.textContent='Erro: '+e.message; } };
+  f('imp').onclick=async()=>{
+    const prot=f('prot').value, rede=f('rede').value;
+    if(!canChain(rede,prot)){ M.msg.textContent='A importação automática só existe para Uniswap v3 / Pancake v3 nas redes EVM suportadas. Escolha protocolo e rede compatíveis.'; return; }
+    const def=(typeof WALLET==='string'&&WALLET)||''; const own=(prompt('Endereço da carteira (0x…) para buscar as posições de '+prot+' na rede '+rede+':',def)||'').trim();
+    if(!own) return; if(!/^0x[0-9a-fA-F]{40}$/.test(own)){ M.msg.textContent='Endereço inválido.'; return; }
+    M.msg.style.color='var(--text-dim)'; M.msg.textContent='Buscando posições…'; sync(); let add=0,skip=0,closed=0;
+    try{ SP().b(); const ids=await listPositions(rede,prot,own);
+      for(const nid of ids){ if(POOLS.some(p=>p.nft===nid&&p.rede===rede&&p.protocolo===prot)){ skip++; continue; }
+        const r=await readPos(rede,prot,nid); if(!r.liq){ closed++; continue; }
+        const pid='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); LIVE[pid]=r;
+        POOLS.push(mk({id:pid,wallet,nft:nid,ativo:r.base,protocolo:prot,rede,taxa:r.fee,min:r.min,max:r.max,valor:0,entrada:0,data:new Date().toISOString().slice(0,10),colhidas:0,pendentes:0,manual:0,obs:'Importada da carteira — o valor depositado é o valor da importação; edite se quiser.'},r)); add++; }
+      await save(); M.msg.style.color=''; M.msg.textContent=add+' importada(s)'+(skip?', '+skip+' já existiam':'')+(closed?', '+closed+' sem liquidez ignorada(s)':'')+'.'; render();
+    }catch(e){ M.msg.style.color=''; M.msg.textContent='Erro ao importar: '+(e.message||e); } finally{ SP().e(); } };
+  M.list.onclick=async e=>{ const b=e.target.closest('button[data-a]'); if(!b) return; const cd=b.closest('.pl-card'); const p=POOLS.find(x=>x.id===cd.dataset.id); if(!p) return; const a=b.dataset.a;
+    if(a==='ed'){ M.fill(p); return; }
+    if(a==='rm'&&!confirm('Remover esta pool?')) return;
+    if(a==='col'){ const L=LIVE[p.id]; const pend=L?L.pendUsd:(+p.pendentes||0); p.colhidas=+((+p.colhidas||0)+pend).toFixed(2); p.pendentes=0; }
+    if(a==='enc') p.encerrada=true; if(a==='reab') p.encerrada=false;
+    if(a==='rm') POOLS=POOLS.filter(x=>x.id!==p.id);
+    try{ await save(); }catch(err){ alert('Erro: '+err.message); } render(); };
+  MOUNTS.push(M); }
+let rendering=false;
+async function render(){
+  if(rendering||POOLS===null) return; rendering=true;
+  try{
+    const P={}; for(const s of [...new Set(POOLS.map(p=>p.ativo))]) P[s]=await price(s);
+    await Promise.all(POOLS.map(plLive));
+    MOUNTS.forEach(M=>{
+      const L=POOLS.filter(p=>p.wallet===M.wallet), O=L.filter(p=>!p.encerrada), C=L.filter(p=>p.encerrada);
+      let val=0,col=0,pen=0,pnl=0,inr=0,outr=0;
+      L.forEach(p=>{ col+=+p.colhidas||0; });
+      O.forEach(p=>{ const e=eff(p,P); pen+=e.pend; if(e.val!=null){ val+=e.val; pnl+=e.val+(+p.colhidas||0)+e.pend-(+p.valor); } if(e.cp){ if(e.inr) inr++; else outr++; } });
+      const n=O.length; document.querySelectorAll('.pl-n[data-w="'+M.wallet+'"]').forEach(x=>x.textContent=n?'('+n+')':'');
+      M.sum.innerHTML=L.length?'<div class="pl-sum"><div><div class="l">Valor em pools</div><div class="v">'+usd(val)+'</div><div class="s">'+O.length+' aberta'+(O.length===1?'':'s')+'</div></div>'
+        +'<div><div class="l">Taxas recolhidas</div><div class="v pl-pos">'+usd(col)+'</div><div class="s">total até agora</div></div>'
+        +'<div><div class="l">Taxas a recolher</div><div class="v pl-pos">'+usd(pen)+'</div><div class="s">ainda nos pools</div></div>'
+        +'<div><div class="l">Resultado</div><div class="v '+(pnl>=0?'pl-pos':'pl-neg')+'">'+usd(pnl)+'</div><div class="s">incl. taxas</div></div>'
+        +'<div><div class="l">Situação</div><div class="v">'+inr+' <span style="font-size:12px;color:var(--text-faint)">no range</span></div><div class="s '+(outr?'pl-neg':'')+'">'+outr+' fora do range</div></div></div>':'';
+      M.list.innerHTML=(O.length?O.map(p=>card(p,P)).join(''):(L.length?'':'<div class="pl-empty">Nenhuma pool ainda. Use “+ Adicionar pool” para lançar a primeira.</div>'))
+        +(C.length?'<div class="pl-h3">Pools encerradas ('+C.length+')</div>'+C.map(p=>card(p,P)).join(''):'');
+    });
+  }catch(e){ console.error(e); }
+  rendering=false; }
+function init(){
+  const p=$('pl-principal'); if(p&&!p.dataset.pl){ mount(p,'principal'); }
+  const tm=$('tab-merdinhas');
+  if(tm&&!$('pl-merd')){
+    const sec=document.createElement('div'); sec.className='section'; sec.id='pl-merd-sec';
+    sec.innerHTML='<h2 class="toggle" onclick="toggleSection(this)">Pools <span class="n pl-n" data-w="merdinhas"></span><span class="chev">▸</span></h2><div class="section-body" id="pl-merd"></div>';
+    const secs=[...tm.querySelectorAll(':scope > .section')]; const after=secs.find(s=>/Composi/.test(s.textContent.slice(0,60)))||secs[0];
+    if(after) after.insertAdjacentElement('afterend',sec); else tm.appendChild(sec);
+    mount($('pl-merd'),'merdinhas'); }
+  sync(); render(); }
+window.__plInit=init; window.__plRead=readPos;
+setTimeout(init,600); setInterval(()=>{ try{ init(); }catch(e){} },30000);
+if(typeof computeAndRender==='function'){ const o=computeAndRender; computeAndRender=async function(){ const r=await o.apply(this,arguments); try{ init(); }catch(e){} return r; }; }
+})();
+</script>
+<style id="ui10-css">
+.rf-spin{display:inline-block;width:15px;height:15px;border:2px solid var(--line-strong);border-top-color:var(--accent);border-radius:50%;margin-left:10px;vertical-align:middle;opacity:0;transition:opacity .2s;animation:rfspin .75s linear infinite;flex:none;}
+.rf-spin.on{opacity:1;}
+@keyframes rfspin{to{transform:rotate(360deg);}}
+</style>
+<script id="ui10-js">
+(function(){
+let n=0,t0=0,off=null;
+const el=()=>document.getElementById('rf-spin');
+function mk(){ if(el()) return; const b=document.getElementById('btn-refresh'); if(!b) return; const s=document.createElement('span'); s.id='rf-spin'; s.className='rf-spin'; s.setAttribute('role','status'); s.setAttribute('aria-label','Carregando'); b.insertAdjacentElement('afterend',s); }
+function show(){ mk(); const s=el(); if(s) s.classList.add('on'); }
+function hide(){ const s=el(); if(s) s.classList.remove('on'); }
+function b(){ n++; if(n===1){ t0=Date.now(); clearTimeout(off); show(); } }
+function e(){ n=Math.max(0,n-1); if(n===0){ const w=Math.max(0,650-(Date.now()-t0)); clearTimeout(off); off=setTimeout(()=>{ if(n===0) hide(); },w); } }
+window.__sp={b,e};
+function wrap(name){ const f=window[name]; if(typeof f!=='function'||f.__sp) return; const w=async function(){ b(); try{ return await f.apply(this,arguments); } finally{ e(); } }; w.__sp=1; try{ window[name]=w; }catch(x){} }
+['refreshLive','loadFromSheet','computeAndRender'].forEach(wrap);
+mk(); setTimeout(()=>{ mk(); ['refreshLive','loadFromSheet','computeAndRender'].forEach(wrap); },1500);
+const bt=document.getElementById('btn-refresh'); if(bt) bt.addEventListener('click',()=>{ b(); setTimeout(e,900); },true);
+})();
 </script>
 </body>
 </html>
