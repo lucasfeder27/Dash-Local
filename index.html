@@ -6661,7 +6661,7 @@ const bt=document.getElementById('btn-refresh'); if(bt) bt.addEventListener('cli
 (function(){
 const KEY='autoaporte', BASE='https://base.blockscout.com/api/v2/addresses/';
 const TOK={'0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf':{s:'cbBTC',d:8,p:'BTCUSDT'},'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913':{s:'USDC',d:6,p:null}};
-let busy=false,blob=null;
+let busy=false,blob=null;const info={t:null,read:0,cand:0,n:0,err:''};
 const W=()=>String(WALLET).toLowerCase();
 const OKEY='carteirasproprias';
 const orow=()=>((window.RAWX&&window.RAWX.cfg)||[]).find(r=>r.chave===OKEY);
@@ -6710,17 +6710,19 @@ async function run(){
   try{
     if(!window.RAWX||!window.RAWX.cfg){await loadFromSheet();if(!window.RAWX||!window.RAWX.cfg)return;}
     blob=load();
-    if(!blob){blob={since:Date.now(),seen:[]};await save();return;}
+    if(!blob){blob={since:Date.now(),seen:[],v:2};await save();return;}
+    if(blob.v!==2){blob.v=2;blob.seen=[];await save();}
     const known=new Set(((state.fluxo)||[]).map(f=>(f.hash||'').toLowerCase()).filter(Boolean));
     (blob.seen||[]).forEach(h=>known.add(h));
     const own=new Set(ownList().map(o=>String(o.addr||'').toLowerCase()));
-    const ev=(await fetchEvents()).filter(e=>!own.has(e.cp)&&e.hash&&e.ts>=blob.since&&!known.has(String(e.hash).toLowerCase())).sort((a,b)=>a.ts-b.ts);
-    let n=0;
+    const all=await fetchEvents();
+    const ev=all.filter(e=>!own.has(e.cp)&&e.hash&&e.ts>=blob.since&&!known.has(String(e.hash).toLowerCase())).sort((a,b)=>a.ts-b.ts);
+    let n=0;info.read=all.length;info.cand=ev.length;
     for(const e of ev){
       const px=e.tk.p?await priceAt(e.tk.p,e.ts):1;
       const usd=e.amt*px;
+      if(!(usd>=0.3))continue;
       blob.seen.push(String(e.hash).toLowerCase());
-      if(!(usd>=1))continue;
       const date=iso(e.ts),p={type:e.kind,date,usd:Math.round(usd*100)/100,hash:e.hash};
       if(e.kind==='aporte'){p.origem='Auto: '+short(e.cp);const c=await fetchHistoricalFx(date);if(c)p.cambio=c;}
       else{p.endereco=e.cp;p.obs='Auto: '+e.amt+' '+e.tk.s;}
@@ -6728,9 +6730,10 @@ async function run(){
     }
     blob.seen=blob.seen.slice(-200);
     if(ev.length){await save();}
+    info.n=n;info.err='';
     if(n)await loadFromSheet();
-  }catch(e){console.warn('auto-aporte',e);window.__autoErr=String(e);}
-  finally{busy=false;if(window.__sp)__sp.e();}
+  }catch(e){console.warn('auto-aporte',e);window.__autoErr=String(e);info.err=String(e.message||e);}
+  finally{busy=false;info.t=new Date();try{showInfo();}catch(e){}if(window.__sp)__sp.e();}
 }
 
 /* ---- carteiras próprias ---- */
@@ -6740,6 +6743,8 @@ async function saveOwn(list){
   await fetch(SCRIPT_URL,{method:'POST',headers:{'x-dash-key':SCRIPT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({type:'put',sheet:'Config',row:r?r._row:undefined,fields:{chave:OKEY,valor:s}})});
   if(r) r.valor=s; else await loadFromSheet();
 }
+function showInfo(){const m=document.getElementById('ow-info');if(!m)return;
+  m.textContent=info.t?('Detecção automática · última checagem '+info.t.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' · '+(info.err?('erro: '+info.err):(info.read+' movimentos de fora lidos, '+info.n+' lançados agora'))+(blob&&blob.since?' · ativa desde '+new Date(blob.since).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'')):'Detecção automática: aguardando a primeira checagem…';}
 function drawOwn(){
   const box=document.getElementById('own-wal');if(!box)return;
   const L=ownList();
@@ -6750,7 +6755,7 @@ function mountOwn(){
   const h=document.getElementById('aportes-count');if(!h||document.getElementById('own-wal'))return;
   const body=h.closest('h2').nextElementSibling;if(!body)return;
   const d=document.createElement('div');d.id='own-wal';
-  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div>';
+  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div><div class="ow-msg" id="ow-info"></div>';
   body.insertBefore(d,body.firstChild);
   document.getElementById('ow-add').onclick=async()=>{
     const a=document.getElementById('ow-addr').value.trim(),n=document.getElementById('ow-nome').value.trim(),m=document.getElementById('ow-msg');
@@ -6759,7 +6764,7 @@ function mountOwn(){
     l.push({nome:n||'Carteira',addr:a});m.textContent='Salvando...';
     try{await saveOwn(l);document.getElementById('ow-addr').value='';document.getElementById('ow-nome').value='';m.textContent='';drawOwn();}catch(e){m.textContent='Erro: '+e.message;}
   };
-  drawOwn();
+  drawOwn();showInfo();
 }
 const _lf=loadFromSheet;loadFromSheet=async function(){const r=await _lf.apply(this,arguments);try{mountOwn();drawOwn();}catch(e){}return r;};
 setTimeout(()=>{try{mountOwn();drawOwn();}catch(e){}},1500);
