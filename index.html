@@ -2742,7 +2742,7 @@ const SPEC={
  saquesM:[['data','Data'],['usd','Valor (USD)'],['endereco','Endereço'],['hash','Hash'],['obs','Observação']],
  compras:[['data','Data'],['usd','Valor (USD)'],['preco','Preço no dia (USD)'],['qty','BTC comprado'],['fonte','Fonte'],['obs','Observação']],
  vendas:[['data','Data'],['usd','USDC recebido (USD)'],['qty','cbBTC vendido'],['destino','Destino'],['hash','Hash'],['obs','Observação']],
- repays:[['data','Data'],['usd','Qntd (USD)'],['qty','cbBTC repago'],['hash','Hash'],['obs','Observação']],
+ repays:[['data','Data'],['usd','Qntd (USD)'],['preco','Cotação (USD)'],['qty','cbBTC repago'],['hash','Hash'],['obs','Observação']],
  emprestimos:[['data','Data'],['usd','Valor (USD)'],['tipo','Tipo',TIPOS],['hash','Hash'],['obs','Observação']],
  wallet:[['data','Data'],['moeda','Moeda'],['tipo','Tipo',['compra','venda']],['qtd','Quantidade'],['usd','Valor (USD)'],['rede','Rede'],['fonte','Fonte'],['obs','Observação']],
  walletM:[['data','Data'],['moeda','Moeda'],['qtd','Quantidade'],['usd','Valor (USD)'],['hash','Hash'],['obs','Observação']],
@@ -2760,6 +2760,7 @@ X.editM=function(sh,row,key){
   let h='<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:560px;width:100%;max-height:90vh;overflow:auto;color:var(--text);"><div style="font-size:16px;font-weight:600;margin-bottom:14px;">Editar lançamento</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
   SPEC[key].forEach(([k,l,opts],i)=>{
     let v=r[k]==null?'':r[k];
+    if(key==='repays'&&k==='preco'&&!(+v>0)&&+r.qty>0&&+r.usd>0) v=Math.round(r.usd/r.qty*100)/100;
     if(k==='tipo'&&key==='emprestimos'){try{v=tipoBorrow(v)||'Alavancagem';}catch(e){}}
     let inp;
     if(opts){const o=opts.includes(v)||v===''?opts:opts.concat([v]); inp='<select data-k="'+k+'" style="'+IST+'">'+o.map(x=>'<option'+(x===v?' selected':'')+'>'+E(x)+'</option>').join('')+'</select>';}
@@ -2785,6 +2786,16 @@ X.editM=function(sh,row,key){
       else if(!ch('qty')&&!ch('preco')) { if(f.preco>0) f.qty=f.usd/f.preco; else f.preco=f.usd/f.qty; }
       if(!(f.qty>0)||!(f.preco>0)) return alert('Preço e quantidade precisam ser maiores que zero.');
     }
+    else if(key==='repays'){
+      const o0=r, ch=(k)=>Math.abs((+f[k]||0)-(+o0[k]||0))>1e-9, o_p=(+o0.preco>0)?+o0.preco:((+o0.qty>0&&+o0.usd>0)?o0.usd/o0.qty:0);
+      if(!(f.usd>0)) return alert('O valor precisa ser maior que zero.');
+      const pCh=Math.abs((+f.preco||0)-o_p)>0.005;
+      if(pCh&&f.preco>0){ f.qty=f.usd/f.preco; }
+      else if(ch('qty')&&f.qty>0){ f.preco=f.usd/f.qty; }
+      else if(f.preco>0&&(+f.qty>0)){ f.qty=f.usd/f.preco; }
+      else if(f.qty>0){ f.preco=f.usd/f.qty; }
+      else { f.qty=0; f.preco=0; }
+    }
     else if(('qty' in f)&&('usd' in f)){ if(!(f.qty>0)||!(f.usd>0)) return alert('Valor e quantidade precisam ser maiores que zero.'); f.preco=f.usd/f.qty; }
     if(key==='wallet'||key==='walletM'){ if(f.qtd>0&&f.usd>0) f.preco=f.usd/f.qtd; }
     if(key==='wallet'&&f.moeda) f.moeda=f.moeda.toUpperCase();
@@ -2792,6 +2803,10 @@ X.editM=function(sh,row,key){
     try{await _p({type:'put',sheet:sh,row:+row,fields:f}); close(); $('sheet-status').textContent='Lançamento atualizado.'; await loadFromSheet();}
     catch(e){$('em-save').disabled=false; alert('Erro ao salvar: '+e.message);}
   };
+  if(key==='repays'){ const g=k=>ov.querySelector('[data-k="'+k+'"]'),n=e=>parseFloat(String(e.value).replace(',','.'))||0,fx=(x,d)=>x>0?String(Math.round(x*Math.pow(10,d))/Math.pow(10,d)):'';
+    g('preco').addEventListener('input',()=>{const u=n(g('usd')),p=n(g('preco')); if(u>0&&p>0) g('qty').value=fx(u/p,8);});
+    g('qty').addEventListener('input',()=>{const u=n(g('usd')),q=n(g('qty')); if(u>0&&q>0) g('preco').value=fx(u/q,2);});
+    g('usd').addEventListener('input',()=>{const u=n(g('usd')),p=n(g('preco')); if(u>0&&p>0) g('qty').value=fx(u/p,8);}); }
   const first=ov.querySelector('input,select'); if(first) first.focus();
 };
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=$('edit-modal'); if(m) m.remove();}});
@@ -6627,6 +6642,129 @@ function wrap(name){ const f=window[name]; if(typeof f!=='function'||f.__sp) ret
 ['refreshLive','loadFromSheet','computeAndRender'].forEach(wrap);
 mk(); setTimeout(()=>{ mk(); ['refreshLive','loadFromSheet','computeAndRender'].forEach(wrap); },1500);
 const bt=document.getElementById('btn-refresh'); if(bt) bt.addEventListener('click',()=>{ b(); setTimeout(e,900); },true);
+})();
+</script>
+<style id="ui11-css">
+#own-wal{border:1px solid var(--line);background:var(--panel-2);border-radius:12px;padding:12px 14px;margin:0 0 14px;}
+#own-wal .ow-h{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;}
+#own-wal .ow-h b{font-size:13px;}#own-wal .ow-h small{font-size:11px;color:var(--text-dim);}
+#own-wal .ow-it{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);}
+#own-wal .ow-it div{display:flex;flex-direction:column;min-width:0;}#own-wal .ow-it b{font-size:13px;}
+#own-wal .ow-it span{font-size:11px;color:var(--text-dim);word-break:break-all;}
+#own-wal .ow-empty{font-size:12px;color:var(--text-dim);padding:4px 0;}
+#own-wal .ow-f{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+#own-wal .ow-f input{flex:1 1 140px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;font-size:13px;}
+#own-wal .ow-f #ow-addr{flex:2 1 220px;}
+#own-wal .ow-msg{font-size:11px;color:var(--text-dim);margin-top:6px;}
+</style>
+<script id="ui11-js">
+(function(){
+const KEY='autoaporte', BASE='https://base.blockscout.com/api/v2/addresses/';
+const TOK={'0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf':{s:'cbBTC',d:8,p:'BTCUSDT'},'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913':{s:'USDC',d:6,p:null}};
+let busy=false,blob=null;
+const W=()=>String(WALLET).toLowerCase();
+const OKEY='carteirasproprias';
+const orow=()=>((window.RAWX&&window.RAWX.cfg)||[]).find(r=>r.chave===OKEY);
+function ownList(){const r=orow();if(!r)return[];try{const a=JSON.parse(r.valor);return Array.isArray(a)?a:[];}catch(e){return[];}}
+const cfgRow=()=>((window.RAWX&&window.RAWX.cfg)||[]).find(r=>r.chave===KEY);
+function load(){const r=cfgRow();if(!r)return null;try{return JSON.parse(r.valor);}catch(e){return null;}}
+async function save(){
+  const s=JSON.stringify(blob),r=cfgRow();
+  await fetch(SCRIPT_URL,{method:'POST',headers:{'x-dash-key':SCRIPT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({type:'put',sheet:'Config',row:r?r._row:undefined,fields:{chave:KEY,valor:s}})});
+  if(r) r.valor=s; else await loadFromSheet();
+}
+async function priceAt(sym,ts){
+  try{const r=await fetch('https://api.binance.com/api/v3/klines?symbol='+sym+'&interval=1m&startTime='+ts+'&limit=1');const j=await r.json();if(j&&j[0])return parseFloat(j[0][4]);}catch(e){}
+  return sym==='BTCUSDT'?(typeof live!=='undefined'&&live.btcPrice)||0:0;
+}
+const iso=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'';
+async function getJ(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json();}
+async function fetchEvents(){
+  const ev=[],w=W();
+  const t=await getJ(BASE+WALLET+'/token-transfers?type=ERC-20');
+  (t.items||[]).forEach(x=>{
+    const ad=((x.token&&(x.token.address_hash||x.token.address))||'').toLowerCase(),tk=TOK[ad];if(!tk)return;
+    const from=x.from||{},to=x.to||{},fh=(from.hash||'').toLowerCase(),th=(to.hash||'').toLowerCase();
+    const m=x.method;if(m&&m!=='transfer'&&m!=='transferFrom')return;
+    const amt=Number((x.total&&x.total.value)||0)/Math.pow(10,tk.d);
+    if(th===w&&fh!==w&&!from.is_contract)ev.push({kind:'aporte',hash:x.transaction_hash||x.tx_hash,ts:Date.parse(x.timestamp),amt,tk,cp:fh});
+    else if(fh===w&&th!==w&&!to.is_contract)ev.push({kind:'saque',hash:x.transaction_hash||x.tx_hash,ts:Date.parse(x.timestamp),amt,tk,cp:th});
+  });
+  try{
+    const tx=await getJ(BASE+WALLET+'/transactions');
+    (tx.items||[]).forEach(x=>{
+      const v=Number(x.value||0)/1e18;if(!v||x.status&&x.status!=='ok')return;
+      if(x.method&&x.method!=='transfer')return;
+      const fh=((x.from||{}).hash||'').toLowerCase(),th=((x.to||{}).hash||'').toLowerCase();
+      const tk={s:'ETH',d:18,p:'ETHUSDT'};
+      if(th===w&&fh!==w&&!(x.from||{}).is_contract)ev.push({kind:'aporte',hash:x.hash,ts:Date.parse(x.timestamp),amt:v,tk,cp:fh});
+      else if(fh===w&&th!==w&&!(x.to||{}).is_contract)ev.push({kind:'saque',hash:x.hash,ts:Date.parse(x.timestamp),amt:v,tk,cp:th});
+    });
+  }catch(e){}
+  return ev;
+}
+async function run(){
+  if(busy||typeof state==='undefined'||typeof WALLET!=='string'||!/^0x[0-9a-fA-F]{40}$/.test(WALLET)||/^0x0{40}$/i.test(WALLET))return;
+  busy=true;if(window.__sp)__sp.b();
+  try{
+    if(!window.RAWX||!window.RAWX.cfg){await loadFromSheet();if(!window.RAWX||!window.RAWX.cfg)return;}
+    blob=load();
+    if(!blob){blob={since:Date.now(),seen:[]};await save();return;}
+    const known=new Set(((state.fluxo)||[]).map(f=>(f.hash||'').toLowerCase()).filter(Boolean));
+    (blob.seen||[]).forEach(h=>known.add(h));
+    const own=new Set(ownList().map(o=>String(o.addr||'').toLowerCase()));
+    const ev=(await fetchEvents()).filter(e=>!own.has(e.cp)&&e.hash&&e.ts>=blob.since&&!known.has(String(e.hash).toLowerCase())).sort((a,b)=>a.ts-b.ts);
+    let n=0;
+    for(const e of ev){
+      const px=e.tk.p?await priceAt(e.tk.p,e.ts):1;
+      const usd=e.amt*px;
+      blob.seen.push(String(e.hash).toLowerCase());
+      if(!(usd>=1))continue;
+      const date=iso(e.ts),p={type:e.kind,date,usd:Math.round(usd*100)/100,hash:e.hash};
+      if(e.kind==='aporte'){p.origem='Auto: '+short(e.cp);const c=await fetchHistoricalFx(date);if(c)p.cambio=c;}
+      else{p.endereco=e.cp;p.obs='Auto: '+e.amt+' '+e.tk.s;}
+      await postToSheet(p);n++;
+    }
+    blob.seen=blob.seen.slice(-200);
+    if(ev.length){await save();}
+    if(n)await loadFromSheet();
+  }catch(e){console.warn('auto-aporte',e);window.__autoErr=String(e);}
+  finally{busy=false;if(window.__sp)__sp.e();}
+}
+
+/* ---- carteiras próprias ---- */
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function saveOwn(list){
+  const s=JSON.stringify(list),r=orow();
+  await fetch(SCRIPT_URL,{method:'POST',headers:{'x-dash-key':SCRIPT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({type:'put',sheet:'Config',row:r?r._row:undefined,fields:{chave:OKEY,valor:s}})});
+  if(r) r.valor=s; else await loadFromSheet();
+}
+function drawOwn(){
+  const box=document.getElementById('own-wal');if(!box)return;
+  const L=ownList();
+  box.querySelector('.ow-list').innerHTML=L.length?L.map((o,i)=>'<div class="ow-it"><div><b>'+esc(o.nome||'Carteira')+'</b><span>'+esc(o.addr)+'</span></div><button class="ghost" data-i="'+i+'">remover</button></div>').join(''):'<div class="ow-empty">Nenhuma carteira cadastrada.</div>';
+  box.querySelectorAll('.ow-it button').forEach(b=>b.onclick=async()=>{const l=ownList();l.splice(+b.dataset.i,1);await saveOwn(l);drawOwn();});
+}
+function mountOwn(){
+  const h=document.getElementById('aportes-count');if(!h||document.getElementById('own-wal'))return;
+  const body=h.closest('h2').nextElementSibling;if(!body)return;
+  const d=document.createElement('div');d.id='own-wal';
+  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div>';
+  body.insertBefore(d,body.firstChild);
+  document.getElementById('ow-add').onclick=async()=>{
+    const a=document.getElementById('ow-addr').value.trim(),n=document.getElementById('ow-nome').value.trim(),m=document.getElementById('ow-msg');
+    if(!/^0x[0-9a-fA-F]{40}$/.test(a)){m.textContent='Endereço inválido (precisa ter 0x + 40 caracteres).';return;}
+    const l=ownList();if(l.some(o=>String(o.addr).toLowerCase()===a.toLowerCase())){m.textContent='Esse endereço já está na lista.';return;}
+    l.push({nome:n||'Carteira',addr:a});m.textContent='Salvando...';
+    try{await saveOwn(l);document.getElementById('ow-addr').value='';document.getElementById('ow-nome').value='';m.textContent='';drawOwn();}catch(e){m.textContent='Erro: '+e.message;}
+  };
+  drawOwn();
+}
+const _lf=loadFromSheet;loadFromSheet=async function(){const r=await _lf.apply(this,arguments);try{mountOwn();drawOwn();}catch(e){}return r;};
+setTimeout(()=>{try{mountOwn();drawOwn();}catch(e){}},1500);
+window.__autoRun=run;window.__autoEv=fetchEvents;
+setTimeout(run,8000);setInterval(run,60000);
 })();
 </script>
 </body>
