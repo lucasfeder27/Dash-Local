@@ -6671,12 +6671,25 @@ const bt=document.getElementById('btn-refresh'); if(bt) bt.addEventListener('cli
 .ap-badge{display:inline-block;min-width:16px;padding:0 5px;margin-left:6px;border-radius:9px;background:#6aa6ff;color:#000;font-size:11px;font-weight:700;line-height:16px;text-align:center;}
 .tab-panel .add-trigger[data-label="+ Adicionar saque"]{background:rgba(255,92,92,.12);background:color-mix(in srgb,var(--red) 13%,transparent);border:1px solid rgba(255,92,92,.45);border:1px solid color-mix(in srgb,var(--red) 50%,transparent);color:var(--red);}
 .tab-panel .add-trigger[data-label="+ Adicionar saque"]:hover{color:var(--red);border-color:var(--red);}
+#own-wal .ow-det{margin-top:8px;font-size:12px;color:var(--text-dim);}
+#own-wal .ow-det summary{cursor:pointer;}
+#own-wal .ow-r{display:flex;flex-wrap:wrap;gap:4px 12px;padding:5px 0;border-top:1px solid var(--line);font-size:11.5px;}
+#own-wal .ow-r b{font-weight:600;color:var(--text);}
+#own-wal #ow-now{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:7px 14px;font-size:13px;}
+#own-wal #ow-hash{flex:1 1 260px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;font-size:13px;}
+#own-wal #ow-hb{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:7px 14px;font-size:13px;}
+#own-wal .ow-c{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:6px 12px;font-size:12.5px;margin:2px 4px 2px 0;}
 </style>
 <script id="ui11-js">
 (function(){
-const KEY='autoaporte', BASE='https://base.blockscout.com/api/v2/addresses/';
-const TOK={'0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf':{s:'cbBTC',d:8,p:'BTCUSDT'},'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913':{s:'USDC',d:6,p:null}};
-let busy=false,blob=null;const info={t:null,read:0,cand:0,n:0,err:'',src:null};
+const KEY='autoaporte';
+const TOK={'0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf':{s:'cbBTC',d:8,p:'BTCUSDT',trusted:1},'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913':{s:'USDC',d:6,p:null,trusted:1}};
+const TRUST=new Set(['0x4200000000000000000000000000000000000006','0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca','0x50c5725949a6f0c72e6c4a641f24049a917db0cb','0xfde4c96c8593536e31f229ea8f37b2ada2699bb2',
+'0xaf88d065e77c8cc2239327c5edb3a432268e5831','0xff970a61a04b1ca14834a43f5de4533ebddb5cc8','0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9','0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+'0x0b2c639c533813f4aa9d7837caf62653d097ff85','0x94b008aa00579c1307b0ef2c499ad98a8ce58e58','0x68f180fcce6836688e9084f035309e29bf0a2095',
+'0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48','0xdac17f958d2ee523a2206206994597c13d831ec7','0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2','0x6b175474e89094c44da98b954eedeac495271d0f','0x2260fac5e5542a773aa44fbcfedf7c193bc2c599']);
+const SYMP={ETH:{p:'ETHUSDT'},WETH:{p:'ETHUSDT'},USDC:{p:null},USDT:{p:null},DAI:{p:null},USDBC:{p:null},CBBTC:{p:'BTCUSDT'},WBTC:{p:'BTCUSDT'}};
+let busy=false,busyAt=0,blob=null;const info={t:null,read:0,cand:0,n:0,err:'',src:null};
 const W=()=>String(WALLET).toLowerCase();
 const OKEY='carteirasproprias';
 const orow=()=>((window.RAWX&&window.RAWX.cfg)||[]).find(r=>r.chave===OKEY);
@@ -6688,77 +6701,111 @@ async function save(){
   await fetch(SCRIPT_URL,{method:'POST',headers:{'x-dash-key':SCRIPT_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({type:'put',sheet:'Config',row:r?r._row:undefined,fields:{chave:KEY,valor:s}})});
   if(r) r.valor=s; else await loadFromSheet();
 }
+const tmo=(p,ms)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('tempo esgotado')),ms))]);
 async function priceAt(sym,ts){
-  try{const r=await fetch('https://api.binance.com/api/v3/klines?symbol='+sym+'&interval=1m&startTime='+ts+'&limit=1');const j=await r.json();if(j&&j[0])return parseFloat(j[0][4]);}catch(e){}
+  try{const r=await tmo(fetch('https://api.binance.com/api/v3/klines?symbol='+sym+'&interval=1m&startTime='+ts+'&limit=1'),10000);const j=await r.json();if(j&&j[0])return parseFloat(j[0][4]);}catch(e){}
+  try{const r=await tmo(fetch('https://api.binance.com/api/v3/ticker/price?symbol='+sym),8000);const j=await r.json();if(j&&j.price)return parseFloat(j.price);}catch(e){}
   return sym==='BTCUSDT'?(typeof live!=='undefined'&&live.btcPrice)||0:0;
 }
 const iso=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'';
-async function getJ(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json();}
+async function getJ(u){const r=await tmo(fetch(u),15000);if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+const CHAINS=[['Base','base'],['Arbitrum','arbitrum'],['Optimism','optimism'],['Ethereum','eth']];
 async function fetchEvents(){
-  const ev=[],w=W(),src={};
+  const ev=[],dbg=[],w=W(),src={};
   const seenH=new Set();
-  const push=e=>{const k=e.kind+':'+String(e.hash).toLowerCase()+':'+e.tk.s;if(seenH.has(k))return;seenH.add(k);ev.push(e);};
-  try{
-    const t=await getJ(BASE+WALLET+'/token-transfers?type=ERC-20');
-    (t.items||[]).forEach(x=>{
-      const ad=((x.token&&(x.token.address_hash||x.token.address))||'').toLowerCase(),tk=TOK[ad];if(!tk)return;
-      const from=x.from||{},to=x.to||{},fh=(from.hash||'').toLowerCase(),th=(to.hash||'').toLowerCase();
-      const m=x.method;if(m&&m!=='transfer'&&m!=='transferFrom')return;
-      const amt=Number((x.total&&x.total.value)||0)/Math.pow(10,tk.d);
-      if(th===w&&fh!==w&&!from.is_contract)push({kind:'aporte',hash:x.transaction_hash||x.tx_hash,ts:Date.parse(x.timestamp),amt,tk,cp:fh});
-      else if(fh===w&&th!==w&&!to.is_contract)push({kind:'saque',hash:x.transaction_hash||x.tx_hash,ts:Date.parse(x.timestamp),amt,tk,cp:th});
-    });src.tokens='ok';
-  }catch(e){src.tokens='erro '+(e.message||e);}
-  const eth={s:'ETH',d:18,p:'ETHUSDT'};
-  try{
-    const tx=await getJ(BASE+WALLET+'/transactions');
-    (tx.items||[]).forEach(x=>{
-      const v=Number(x.value||0)/1e18;if(!v||(x.status&&x.status!=='ok'))return;
-      const fh=((x.from||{}).hash||'').toLowerCase(),th=((x.to||{}).hash||'').toLowerCase();
-      if(th===w&&fh!==w&&!(x.from||{}).is_contract)push({kind:'aporte',hash:x.hash,ts:Date.parse(x.timestamp),amt:v,tk:eth,cp:fh});
-      else if(fh===w&&th!==w&&!(x.to||{}).is_contract)push({kind:'saque',hash:x.hash,ts:Date.parse(x.timestamp),amt:v,tk:eth,cp:th});
-    });src.eth='ok';
-  }catch(e){src.eth='erro '+(e.message||e);}
-  try{
-    const it=await getJ(BASE+WALLET+'/internal-transactions');
-    (it.items||[]).forEach(x=>{
-      const v=Number(x.value||0)/1e18;if(!v||x.success===false)return;
-      const fh=((x.from||{}).hash||'').toLowerCase(),th=((x.to||{}).hash||'').toLowerCase();
-      const h=x.transaction_hash||x.transaction_hash_hex||x.tx_hash;
-      if(th===w&&fh!==w&&!(x.from||{}).is_contract)push({kind:'aporte',hash:h,ts:Date.parse(x.timestamp),amt:v,tk:eth,cp:fh});
-      else if(fh===w&&th!==w&&!(x.to||{}).is_contract)push({kind:'saque',hash:h,ts:Date.parse(x.timestamp),amt:v,tk:eth,cp:th});
-    });src.int='ok';
-  }catch(e){src.int='erro '+(e.message||e);}
+  function consider(o){
+    const fh=((o.from||{}).hash||'').toLowerCase(),th=((o.to||{}).hash||'').toLowerCase();
+    const d={ts:Date.parse(o.ts),s:o.tk?o.tk.s:o.sym,amt:o.amt,src:o.src,hash:o.hash,net:o.net};
+    let why='';
+    if(!o.tk)why='token não monitorado'+(o.ta?' ('+short(o.ta)+')':'');
+    else if(o.fail)why='transação falhou';
+    else if(fh===w&&th===w)why='de si para si';
+    else if(th===w){d.dir='entrada';d.cp=fh;if((o.from||{}).is_contract)why='origem é contrato';}
+    else if(fh===w){d.dir='saída';d.cp=th;if((o.to||{}).is_contract)why='destino é contrato';}
+    else why='não envolve a carteira';
+    if(!d.dir){d.dir=th===w?'entrada':fh===w?'saída':'?';d.cp=d.dir==='entrada'?fh:th;}
+    if(!why&&o.src==='tokens'&&o.method&&o.method!=='transfer'&&o.method!=='transferFrom')why='método '+o.method;
+    d.why=why;dbg.push(d);
+    if(why)return;
+    const kind=d.dir==='entrada'?'aporte':'saque';
+    const k=o.net+':'+kind+':'+String(o.hash).toLowerCase()+':'+o.tk.s+':'+o.amt;if(seenH.has(k)){d.why='duplicado (outra fonte)';return;}seenH.add(k);
+    if(o.tk.ta&&!o.tk.trusted)d.why='';
+    ev.push({kind,hash:o.hash,ts:d.ts,amt:o.amt,tk:o.tk,cp:d.cp,net:o.net,d});
+  }
+  const eth={s:'ETH',d:18,p:'ETHUSDT',trusted:1};
+  let anyOk=false;
+  for(const [net,ck] of CHAINS){
+    const B='https://'+ck+'.blockscout.com/api/v2/addresses/',r={};src[net]=r;
+    try{
+      const t=await getJ(B+WALLET+'/token-transfers?type=ERC-20');
+      (t.items||[]).forEach(x=>{
+        const ad=((x.token&&(x.token.address_hash||x.token.address))||'').toLowerCase();let tk=net==='Base'?TOK[ad]:null;
+        const tsym=String((x.token&&x.token.symbol)||'').toUpperCase();
+        if(!tk&&SYMP[tsym])tk={s:x.token.symbol,d:+(x.token&&x.token.decimals)||+(x.total&&x.total.decimals)||18,p:SYMP[tsym].p,ta:ad,trusted:TRUST.has(ad)};
+        consider({net,src:'tokens',from:x.from,to:x.to,ts:x.timestamp,hash:x.transaction_hash||x.tx_hash,method:x.method,tk,ta:ad,sym:(x.token&&x.token.symbol)||'?',amt:Number((x.total&&x.total.value)||0)/Math.pow(10,tk?tk.d:(+(x.total&&x.total.decimals)||18))});
+      });r.tokens='ok ('+(t.items||[]).length+')';anyOk=true;
+    }catch(e){r.tokens='erro '+(e.message||e);}
+    try{
+      const tx=await getJ(B+WALLET+'/transactions');
+      (tx.items||[]).forEach(x=>{const v=Number(x.value||0)/1e18;if(!v)return;consider({net,src:'ETH',from:x.from,to:x.to,ts:x.timestamp,hash:x.hash,tk:eth,amt:v,fail:!!(x.status&&x.status!=='ok')});});
+      r.eth='ok ('+(tx.items||[]).length+')';anyOk=true;
+    }catch(e){r.eth='erro '+(e.message||e);}
+    try{
+      const it=await getJ(B+WALLET+'/internal-transactions');
+      (it.items||[]).forEach(x=>{const v=Number(x.value||0)/1e18;if(!v)return;consider({net,src:'interna',from:x.from,to:x.to,ts:x.timestamp,hash:x.transaction_hash||x.transaction_hash_hex||x.tx_hash,tk:eth,amt:v,fail:x.success===false});});
+      r.int='ok ('+(it.items||[]).length+')';anyOk=true;
+    }catch(e){r.int='erro '+(e.message||e);}
+  }
   info.src=src;
-  if(src.tokens!=='ok'&&src.eth!=='ok'&&src.int!=='ok')throw new Error('Blockscout indisponível ('+src.eth+')');
-  return ev;
+  if(!anyOk)throw new Error('Blockscout indisponível');
+  return {ev,dbg};
 }
-async function run(){
-  if(busy||typeof state==='undefined'||typeof WALLET!=='string'||!/^0x[0-9a-fA-F]{40}$/.test(WALLET)||/^0x0{40}$/i.test(WALLET))return;
-  busy=true;if(window.__sp)__sp.b();
+async function run(force){
+  if(busy&&Date.now()-busyAt>90000)busy=false;
+  if(busy||typeof state==='undefined')return;
+  if(typeof WALLET!=='string'||!/^0x[0-9a-fA-F]{40}$/.test(WALLET)||/^0x0{40}$/i.test(WALLET)){info.err='nenhuma carteira EVM cadastrada neste painel';info.t=new Date();try{showInfo();}catch(e){}return;}
+  busy=true;busyAt=Date.now();if(window.__sp)__sp.b();
   try{
-    if(!window.RAWX||!window.RAWX.cfg){await loadFromSheet();if(!window.RAWX||!window.RAWX.cfg)return;}
+    if(!window.RAWX||!window.RAWX.cfg){await loadFromSheet();if(!window.RAWX||!window.RAWX.cfg)throw new Error('não consegui ler as configurações');}
     blob=load();
-    if(!blob){blob={since:Date.now(),seen:[],v:2};await save();return;}
+    if(!blob){blob={since:Date.now(),seen:[],v:2};await save();}
     if(blob.v!==2){blob.v=2;blob.seen=[];await save();}
     const known=new Set(((state.fluxo)||[]).map(f=>(f.hash||'').toLowerCase()).filter(Boolean));
     (blob.seen||[]).forEach(h=>known.add(h));(blob.pend||[]).forEach(p=>known.add(String(p.h).toLowerCase()));
     const own=new Set(ownList().map(o=>String(o.addr||'').toLowerCase()));
-    const all=await fetchEvents();
-    const ev=all.filter(e=>!own.has(e.cp)&&e.hash&&e.ts>=blob.since&&!known.has(String(e.hash).toLowerCase())).sort((a,b)=>a.ts-b.ts);
-    let n=0;info.read=all.length;info.cand=ev.length;
+    const {ev:all,dbg}=await fetchEvents();
+    const ev=[];
+    all.forEach(e=>{
+      const h=String(e.hash||'').toLowerCase();
+      if(!e.hash)e.d.why='sem hash';
+      else if(own.has(e.cp))e.d.why='carteira própria';
+      else if(e.ts<blob.since)e.d.why='anterior à ativação';
+      else if(known.has(h))e.d.why='já tratado';
+      else ev.push(e);
+    });
+    ev.sort((a,b)=>a.ts-b.ts);
+    let n=0,na=0;info.read=all.length;info.cand=ev.length;
     blob.pend=blob.pend||[];
     for(const e of ev){
       const px=e.tk.p?await priceAt(e.tk.p,e.ts):1;
       const usd=e.amt*px;
-      if(!(usd>=0.3))continue;
+      if(!(usd>=0.3)){e.d.why='valor muito baixo (US$ '+usd.toFixed(2)+')';continue;}
       blob.seen.push(String(e.hash).toLowerCase());
-      blob.pend.push({h:e.hash,k:e.kind,ts:e.ts,usd:Math.round(usd*100)/100,cp:e.cp,s:e.tk.s,amt:e.amt});n++;
+      if(e.tk.trusted){
+        const date=iso(e.ts),pl={type:e.kind,date,usd:Math.round(usd*100)/100,hash:e.hash},net=(e.net&&e.net!=='Base')?' · '+e.net:'';
+        if(e.kind==='aporte'){pl.origem='Auto: '+short(e.cp)+net;try{const c=await tmo(fetchHistoricalFx(date),10000);if(c)pl.cambio=c;}catch(x){}}
+        else{pl.endereco=e.cp;pl.obs='Auto: '+fmtQ(e.amt,e.tk.s)+net;}
+        await postToSheet(pl);na++;e.d.why='LANÇADO automaticamente';
+      }else{
+        blob.pend.push({h:e.hash,k:e.kind,ts:e.ts,usd:Math.round(usd*100)/100,cp:e.cp,s:e.tk.s,amt:e.amt,ta:e.tk.ta||'',net:e.net||'Base'});n++;
+        e.d.why='NOVO → pendente (token desconhecido)';
+      }
     }
     blob.seen=blob.seen.slice(-200);
     if(ev.length){await save();}
-    info.n=n;info.err='';
+    if(na)await loadFromSheet();
+    info.n=n;info.na=na;info.err='';info.list=dbg.sort((a,b)=>b.ts-a.ts).slice(0,15);
   }catch(e){console.warn('auto-aporte',e);window.__autoErr=String(e);info.err=String(e.message||e);}
   finally{busy=false;info.t=new Date();try{showInfo();drawPend();}catch(e){}if(window.__sp)__sp.e();}
 }
@@ -6780,7 +6827,7 @@ function drawPend(){
   const L=pend();
   box.style.display=L.length?'':'none';
   box.querySelector('.ap-h b').textContent='Detectado na carteira · confirmar ('+L.length+')';
-  box.querySelector('.ap-list').innerHTML=L.map((p,i)=>'<div class="ap-it" data-i="'+i+'"><select class="ap-k"><option value="aporte"'+(p.k==='aporte'?' selected':'')+'>Aporte</option><option value="saque"'+(p.k==='saque'?' selected':'')+'>Saque</option></select><span class="ap-d">'+fmtD(p.ts)+'</span><span class="ap-q">'+esc(fmtQ(p.amt,p.s))+'</span><span class="ap-cp" title="'+esc(p.cp)+'">'+(p.k==='aporte'?'de ':'para ')+esc(short(p.cp))+'</span><label class="ap-l">US$ <input class="ap-u" type="number" step="0.01" value="'+p.usd+'"></label><span class="ap-bt"><button class="ap-ok">Confirmar</button><button class="ghost ap-no">Descartar</button></span></div>').join('');
+  box.querySelector('.ap-list').innerHTML=L.map((p,i)=>'<div class="ap-it" data-i="'+i+'"><select class="ap-k"><option value="aporte"'+(p.k==='aporte'?' selected':'')+'>Aporte</option><option value="saque"'+(p.k==='saque'?' selected':'')+'>Saque</option></select><span class="ap-d">'+fmtD(p.ts)+'</span><span class="ap-q">'+esc(fmtQ(p.amt,p.s))+'</span><span class="ap-cp" title="'+esc(p.cp)+'">'+(p.k==='aporte'?'de ':'para ')+esc(short(p.cp))+(p.net&&p.net!=='Base'?' · '+esc(p.net):'')+(p.ta?' · token '+esc(short(p.ta)):'')+'</span><label class="ap-l">US$ <input class="ap-u" type="number" step="0.01" value="'+p.usd+'"></label><span class="ap-bt"><button class="ap-ok">Confirmar</button><button class="ghost ap-no">Descartar</button></span></div>').join('');
   box.querySelectorAll('.ap-it').forEach(row=>{
     const i=+row.dataset.i;
     row.querySelector('.ap-ok').onclick=()=>actP(i,true,row);
@@ -6805,7 +6852,49 @@ async function actP(i,ok,row){
   }catch(e){row.querySelectorAll('button').forEach(b=>b.disabled=false);alert('Erro: '+e.message);}
 }
 function showInfo(){const m=document.getElementById('ow-info');if(!m)return;
-  m.textContent=info.t?('Detecção automática · última checagem '+info.t.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' · '+(info.err?('erro: '+info.err):(info.read+' movimentos de fora lidos, '+info.n+' novos pra confirmar'+(info.src?' · fontes: tokens '+info.src.tokens+', ETH '+info.src.eth+', internas '+info.src.int:'')))+(blob&&blob.since?' · ativa desde '+new Date(blob.since).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'')):'Detecção automática: aguardando a primeira checagem…';}
+  m.textContent=info.t?('Detecção automática · última checagem '+info.t.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' · '+(info.err?('erro: '+info.err):(info.read+' movimentos de fora lidos, '+(info.na||0)+' lançados sozinhos, '+info.n+' pra confirmar'+(info.src?' · redes: '+Object.keys(info.src).map(n=>{const r=info.src[n];const bad=['tokens','eth','int'].filter(k=>!/^ok/.test(r[k]));return n+(bad.length?' (falhou '+bad.join(', ')+')':' ok');}).join(', '):'')))+(blob&&blob.since?' · ativa desde '+new Date(blob.since).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'')):'Detecção automática: aguardando a primeira checagem…';
+  const l=document.getElementById('ow-list2');if(!l)return;
+  l.innerHTML=(info.list&&info.list.length)?info.list.map(d=>'<div class="ow-r"><span>'+new Date(d.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</span><span>'+esc(d.dir||'')+' '+esc(d.s||'')+' '+(d.amt>=0?(d.amt<1?d.amt.toFixed(6):d.amt.toFixed(2)):'')+'</span><span>'+esc(short(d.cp||''))+'</span><span>'+esc((d.net||'')+' · '+d.src)+'</span><b>'+esc(d.why||'ok')+'</b></div>').join(''):'<div class="ow-empty">Nada lido ainda.</div>';
+}
+
+async function analyze(){
+  const out=document.getElementById('ow-hout'),h=document.getElementById('ow-hash').value.trim();
+  const L=[];const add=t=>L.push('<div class="ow-r">'+t+'</div>');
+  const fin=()=>{out.innerHTML=L.join('');};
+  if(!/^0x[0-9a-fA-F]{64}$/.test(h)){out.innerHTML='<div class="ow-r"><b>Hash inválido (0x + 64 caracteres).</b></div>';return;}
+  out.innerHTML='<div class="ow-r">Consultando…</div>';
+  let API='';const w=W(),me=a=>String(a||'').toLowerCase()===w;
+  const nm=a=>{const x=a&&a.hash;if(!x)return '—';return (me(x)?'SUA CARTEIRA ':'')+short(x)+(a.is_contract?' (contrato)':'');};
+  try{
+    let tx=null,net='';
+    const CH=CHAINS.concat([['Polygon','polygon']]);
+    for(const [n,k] of CH){try{tx=await getJ('https://'+k+'.blockscout.com/api/v2/transactions/'+h);net=n;API='https://'+k+'.blockscout.com/api/v2/transactions/';break;}catch(e){}}
+    if(!tx)throw new Error('404');
+    add('<b>Encontrada na rede '+net+'</b> · status '+esc(tx.status||tx.result||'?')+' · método '+esc(tx.method||'transferência simples')+' · '+new Date(tx.timestamp).toLocaleString('pt-BR'));
+    add('ETH: de '+esc(nm(tx.from))+' → para '+esc(nm(tx.to))+' · valor '+(Number(tx.value||0)/1e18).toFixed(6)+' ETH');
+    let inv=me((tx.from||{}).hash)||me((tx.to||{}).hash);
+    const cand=[],ethT={s:'ETH',d:18,p:'ETHUSDT'};
+    const addc=(from,to,amt,tk,ta)=>{const f=String((from||{}).hash||'').toLowerCase(),t=String((to||{}).hash||'').toLowerCase();if(!(amt>0)||!tk)return;let kind=null,cp='';if(t===w&&f!==w){kind='aporte';cp=f;}else if(f===w&&t!==w){kind='saque';cp=t;}if(!kind)return;if(cand.some(c=>c.k===kind&&c.cp===cp&&Math.abs(c.amt-amt)<1e-12&&c.s===tk.s))return;cand.push({k:kind,cp,amt,tk,s:tk.s,ta:ta||'',h:h,ts:Date.parse(tx.timestamp),net});};
+    if(!tx.status||tx.status==='ok')addc(tx.from,tx.to,Number(tx.value||0)/1e18,ethT,'');
+    try{const tt=await getJ(API+h+'/token-transfers');(tt.items||[]).forEach(x=>{{const ad=((x.token&&(x.token.address_hash||x.token.address))||'').toLowerCase(),sy=String((x.token&&x.token.symbol)||'').toUpperCase();let tk=net==='Base'?TOK[ad]:null;const dec=+((x.total&&x.total.decimals)||(x.token&&x.token.decimals)||18);if(!tk&&SYMP[sy])tk={s:x.token.symbol,d:dec,p:SYMP[sy].p,ta:ad};if(tk)addc(x.from,x.to,Number((x.total&&x.total.value)||0)/Math.pow(10,tk.d),tk,tk.ta||'');}if(me((x.from||{}).hash)||me((x.to||{}).hash))inv=true;add('Token '+esc((x.token&&x.token.symbol)||'?')+' ('+esc(short((x.token&&(x.token.address_hash||x.token.address))||''))+'): de '+esc(nm(x.from))+' → para '+esc(nm(x.to))+' · '+(Number((x.total&&x.total.value)||0)/Math.pow(10,+((x.total&&x.total.decimals)||(x.token&&x.token.decimals)||18))).toFixed(6));});}catch(e){}
+    try{const it=await getJ(API+h+'/internal-transactions');(it.items||[]).forEach(x=>{addc(x.from,x.to,Number(x.value||0)/1e18,ethT,'');if(me((x.from||{}).hash)||me((x.to||{}).hash))inv=true;add('Interna: de '+esc(nm(x.from))+' → para '+esc(nm(x.to))+' · '+(Number(x.value||0)/1e18).toFixed(6)+' ETH');});}catch(e){}
+    if(cand.length)add('<b>Lançar nas pendências:</b> '+cand.map((c,i)=>'<button class="ow-c" data-i="'+i+'">'+(c.k==='saque'?'Saque':'Aporte')+' · '+c.amt.toFixed(c.amt<1?6:2)+' '+esc(c.s)+' ('+(c.k==='saque'?'para ':'de ')+esc(short(c.cp))+')</button>').join(' '));
+    window.__cand=cand;
+    add(inv?(CHAINS.some(c=>c[0]===net)?'<b>Envolve a carteira deste painel na rede '+net+'.</b> Se mesmo assim não aparecer nas pendências, me mande esse resultado.':'<b>Envolve a carteira, mas na rede '+net+', que o painel ainda não lê.</b>'):'<b>Esta transação NÃO envolve a carteira cadastrada neste painel ('+esc(short(WALLET))+') na rede '+net+'.</b> Por isso não aparece aqui.');
+  }catch(e){
+    add('<b>'+(/404/.test(String(e.message))?'Não achei esse hash em Base, Ethereum, Arbitrum, Optimism nem Polygon (ou o explorador está indisponível agora).':'Erro ao consultar: '+esc(e.message||e))+'</b>');
+  }
+  fin();
+  out.querySelectorAll('.ow-c').forEach(b=>b.onclick=async()=>{const c=window.__cand[+b.dataset.i];b.disabled=true;b.textContent='Adicionando…';try{await addCand(c);b.textContent='✓ Adicionado às pendências (veja o cartão azul acima)';}catch(e){b.disabled=false;b.textContent='Erro: '+(e.message||e);}});
+}
+async function addCand(c){
+  blob=load()||blob||{since:Date.now(),seen:[],v:2};blob.pend=blob.pend||[];
+  if(blob.pend.some(p=>String(p.h).toLowerCase()===String(c.h).toLowerCase()&&p.k===c.k))return;
+  const px=c.tk.p?await priceAt(c.tk.p,c.ts):1;
+  blob.pend.push({h:c.h,k:c.k,ts:c.ts,usd:Math.round(c.amt*px*100)/100,cp:c.cp,s:c.s,amt:c.amt,ta:c.ta||'',net:c.net});
+  blob.seen=(blob.seen||[]).concat([String(c.h).toLowerCase()]).slice(-200);
+  await save();drawPend();
+}
 function drawOwn(){
   const box=document.getElementById('own-wal');if(!box)return;
   const L=ownList();
@@ -6816,7 +6905,7 @@ function mountOwn(){
   const h=document.getElementById('aportes-count');if(!h||document.getElementById('own-wal'))return;
   const body=h.closest('h2').nextElementSibling;if(!body)return;
   const d=document.createElement('div');d.id='own-wal';
-  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div><div class="ow-msg" id="ow-info"></div>';
+  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div><div class="ow-msg" id="ow-info"></div><div class="ow-f"><button id="ow-now">Verificar agora</button></div><details class="ow-det"><summary>Ver o que foi lido na blockchain</summary><div class="ow-f"><input id="ow-hash" placeholder="Cole o hash (0x…) de uma transação para analisar"><button id="ow-hb">Analisar</button></div><div id="ow-hout"></div><div id="ow-list2"></div></details>';
   body.insertBefore(d,body.firstChild);
   const ap=document.createElement('div');ap.id='auto-pend';ap.style.display='none';ap.innerHTML='<div class="ap-h"><b></b></div><div class="ap-list"></div>';body.insertBefore(ap,body.firstChild);
   document.getElementById('ow-add').onclick=async()=>{
@@ -6826,6 +6915,8 @@ function mountOwn(){
     l.push({nome:n||'Carteira',addr:a});m.textContent='Salvando...';
     try{await saveOwn(l);document.getElementById('ow-addr').value='';document.getElementById('ow-nome').value='';m.textContent='';drawOwn();}catch(e){m.textContent='Erro: '+e.message;}
   };
+  document.getElementById('ow-now').onclick=async()=>{const m=document.getElementById('ow-info');m.textContent='Verificando…';busy=false;await run(true);};
+  document.getElementById('ow-hb').onclick=analyze;
   drawOwn();showInfo();drawPend();
 }
 const _lf=loadFromSheet;loadFromSheet=async function(){const r=await _lf.apply(this,arguments);try{mountOwn();drawOwn();drawPend();}catch(e){}return r;};
