@@ -6679,6 +6679,7 @@ const bt=document.getElementById('btn-refresh'); if(bt) bt.addEventListener('cli
 #own-wal #ow-hash{flex:1 1 260px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;font-size:13px;}
 #own-wal #ow-hb{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:7px 14px;font-size:13px;}
 #own-wal .ow-c{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:6px 12px;font-size:12.5px;margin:2px 4px 2px 0;}
+#own-wal .ow-imp{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:8px;padding:3px 10px;font-size:11.5px;margin-left:auto;}
 </style>
 <script id="ui11-js">
 (function(){
@@ -6709,14 +6710,20 @@ async function priceAt(sym,ts){
 }
 const iso=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'';
-async function getJ(u){const r=await tmo(fetch(u),15000);if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+async function getJ(u){
+  for(let i=0;i<2;i++){
+    try{const r=await tmo(fetch(u),15000);if(r.ok)return r.json();if(r.status===404||i)throw new Error('HTTP '+r.status);}
+    catch(e){if(i||/HTTP 404/.test(String(e.message)))throw e;}
+    await new Promise(z=>setTimeout(z,900));
+  }
+}
 const CHAINS=[['Base','base'],['Arbitrum','arbitrum'],['Optimism','optimism'],['Ethereum','eth']];
 async function fetchEvents(){
   const ev=[],dbg=[],w=W(),src={};
   const seenH=new Set();
   function consider(o){
     const fh=((o.from||{}).hash||'').toLowerCase(),th=((o.to||{}).hash||'').toLowerCase();
-    const d={ts:Date.parse(o.ts),s:o.tk?o.tk.s:o.sym,amt:o.amt,src:o.src,hash:o.hash,net:o.net};
+    const d={ts:Date.parse(o.ts),s:o.tk?o.tk.s:o.sym,amt:o.amt,src:o.src,hash:o.hash,net:o.net,tk:o.tk};
     let why='';
     if(!o.tk)why='token não monitorado'+(o.ta?' ('+short(o.ta)+')':'');
     else if(o.fail)why='transação falhou';
@@ -6761,6 +6768,24 @@ async function fetchEvents(){
   if(!anyOk)throw new Error('Blockscout indisponível');
   return {ev,dbg};
 }
+async function postEv(kind,ts,usd,hash,cp,amt,tk,net){
+  const date=iso(ts),pl={type:kind,date,usd:Math.round(usd*100)/100,hash},nt=(net&&net!=='Base')?' · '+net:'';
+  if(kind==='aporte'){pl.origem='Auto: '+short(cp)+nt;try{const c=await tmo(fetchHistoricalFx(date),10000);if(c)pl.cambio=c;}catch(x){}}
+  else{pl.endereco=cp;pl.obs='Auto: '+fmtQ(amt,tk.s)+nt;}
+  await postToSheet(pl);
+}
+async function impRow(i,btn){
+  const d=(info.list||[])[i];if(!d||!d.tk)return;
+  btn.disabled=true;btn.textContent='Lançando…';
+  try{
+    const hh=String(d.hash).toLowerCase();
+    if(((state.fluxo)||[]).some(f=>String(f.hash||'').toLowerCase()===hh&&f.type===(d.dir==='entrada'?'aporte':'saque'))){d.why='já tratado';showInfo();return;}
+    const px=d.tk.p?await priceAt(d.tk.p,d.ts):1,usd=d.amt*px;
+    await postEv(d.dir==='entrada'?'aporte':'saque',d.ts,usd,d.hash,d.cp,d.amt,d.tk,d.net);
+    blob=load()||blob;if(blob){blob.seen=(blob.seen||[]).concat([String(d.hash).toLowerCase()]).slice(-200);await save();}
+    d.why='LANÇADO manualmente';await loadFromSheet();showInfo();
+  }catch(e){btn.disabled=false;btn.textContent='Erro: '+(e.message||e);}
+}
 async function run(force){
   if(busy&&Date.now()-busyAt>90000)busy=false;
   if(busy||typeof state==='undefined')return;
@@ -6780,8 +6805,8 @@ async function run(force){
       const h=String(e.hash||'').toLowerCase();
       if(!e.hash)e.d.why='sem hash';
       else if(own.has(e.cp))e.d.why='carteira própria';
-      else if(e.ts<blob.since)e.d.why='anterior à ativação';
       else if(known.has(h))e.d.why='já tratado';
+      else if(e.ts<blob.since)e.d.why='anterior à ativação';
       else ev.push(e);
     });
     ev.sort((a,b)=>a.ts-b.ts);
@@ -6793,10 +6818,7 @@ async function run(force){
       if(!(usd>=0.3)){e.d.why='valor muito baixo (US$ '+usd.toFixed(2)+')';continue;}
       blob.seen.push(String(e.hash).toLowerCase());
       if(e.tk.trusted){
-        const date=iso(e.ts),pl={type:e.kind,date,usd:Math.round(usd*100)/100,hash:e.hash},net=(e.net&&e.net!=='Base')?' · '+e.net:'';
-        if(e.kind==='aporte'){pl.origem='Auto: '+short(e.cp)+net;try{const c=await tmo(fetchHistoricalFx(date),10000);if(c)pl.cambio=c;}catch(x){}}
-        else{pl.endereco=e.cp;pl.obs='Auto: '+fmtQ(e.amt,e.tk.s)+net;}
-        await postToSheet(pl);na++;e.d.why='LANÇADO automaticamente';
+        await postEv(e.kind,e.ts,usd,e.hash,e.cp,e.amt,e.tk,e.net);na++;e.d.why='LANÇADO automaticamente';
       }else{
         blob.pend.push({h:e.hash,k:e.kind,ts:e.ts,usd:Math.round(usd*100)/100,cp:e.cp,s:e.tk.s,amt:e.amt,ta:e.tk.ta||'',net:e.net||'Base'});n++;
         e.d.why='NOVO → pendente (token desconhecido)';
@@ -6852,9 +6874,10 @@ async function actP(i,ok,row){
   }catch(e){row.querySelectorAll('button').forEach(b=>b.disabled=false);alert('Erro: '+e.message);}
 }
 function showInfo(){const m=document.getElementById('ow-info');if(!m)return;
-  m.textContent=info.t?('Detecção automática · última checagem '+info.t.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' · '+(info.err?('erro: '+info.err):(info.read+' movimentos de fora lidos, '+(info.na||0)+' lançados sozinhos, '+info.n+' pra confirmar'+(info.src?' · redes: '+Object.keys(info.src).map(n=>{const r=info.src[n];const bad=['tokens','eth','int'].filter(k=>!/^ok/.test(r[k]));return n+(bad.length?' (falhou '+bad.join(', ')+')':' ok');}).join(', '):'')))+(blob&&blob.since?' · ativa desde '+new Date(blob.since).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'')):'Detecção automática: aguardando a primeira checagem…';
+  m.textContent=info.t?('Detecção automática · última checagem '+info.t.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' · '+(info.err?('erro: '+info.err):(info.read+' movimentos de fora lidos, '+(info.na||0)+' lançados sozinhos, '+info.n+' pra confirmar'+(info.src?' · redes: '+Object.keys(info.src).map(n=>{const r=info.src[n];const bad=['tokens','eth','int'].filter(k=>!/^ok/.test(r[k]));return n+(bad.length?' (falhou: '+bad.map(k=>k+' '+String(r[k]).replace(/^erro /,'')).join('; ')+')':' ok');}).join(', '):'')))+(blob&&blob.since?' · ativa desde '+new Date(blob.since).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'')):'Detecção automática: aguardando a primeira checagem…';
   const l=document.getElementById('ow-list2');if(!l)return;
-  l.innerHTML=(info.list&&info.list.length)?info.list.map(d=>'<div class="ow-r"><span>'+new Date(d.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</span><span>'+esc(d.dir||'')+' '+esc(d.s||'')+' '+(d.amt>=0?(d.amt<1?d.amt.toFixed(6):d.amt.toFixed(2)):'')+'</span><span>'+esc(short(d.cp||''))+'</span><span>'+esc((d.net||'')+' · '+d.src)+'</span><b>'+esc(d.why||'ok')+'</b></div>').join(''):'<div class="ow-empty">Nada lido ainda.</div>';
+  l.innerHTML=(info.list&&info.list.length)?info.list.map((d,idx)=>'<div class="ow-r"><span>'+new Date(d.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</span><span>'+esc(d.dir||'')+' '+esc(d.s||'')+' '+(d.amt>=0?(d.amt<1?d.amt.toFixed(6):d.amt.toFixed(2)):'')+'</span><span>'+esc(short(d.cp||''))+'</span><span>'+esc((d.net||'')+' · '+d.src)+'</span><b>'+esc(d.why||'ok')+'</b>'+((d.why==='anterior à ativação'&&d.tk&&d.hash&&d.cp&&d.dir!=='?')?'<button class="ow-imp" data-i="'+idx+'">Lançar como '+(d.dir==='entrada'?'aporte':'saque')+'</button>':'')+'</div>').join(''):'<div class="ow-empty">Nada lido ainda.</div>';
+  l.querySelectorAll('.ow-imp').forEach(b=>b.onclick=()=>impRow(+b.dataset.i,b));
 }
 
 async function analyze(){
