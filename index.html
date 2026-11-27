@@ -6680,6 +6680,10 @@ const bt=document.getElementById('btn-refresh'); if(bt) bt.addEventListener('cli
 #own-wal #ow-hb{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:7px 14px;font-size:13px;}
 #own-wal .ow-c{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:6px 12px;font-size:12.5px;margin:2px 4px 2px 0;}
 #own-wal .ow-imp{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:8px;padding:3px 10px;font-size:11.5px;margin-left:auto;}
+#own-wal #ow-list2{max-height:420px;overflow:auto;}
+#own-wal .ow-sl{font-size:12px;color:var(--text-dim);align-self:center;margin-left:8px;}
+#own-wal #ow-since{background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 8px;font:inherit;font-size:13px;flex:0 0 auto;}
+#own-wal #ow-sb{background:rgba(106,166,255,.14);border:1px solid rgba(106,166,255,.55);color:#6aa6ff;font-weight:600;border-radius:10px;padding:7px 14px;font-size:13px;}
 </style>
 <script id="ui11-js">
 (function(){
@@ -6827,7 +6831,7 @@ async function run(force){
     blob.seen=blob.seen.slice(-200);
     if(ev.length){await save();}
     if(na)await loadFromSheet();
-    info.n=n;info.na=na;info.err='';info.list=dbg.sort((a,b)=>b.ts-a.ts).slice(0,15);
+    info.n=n;info.na=na;info.err='';info.list=dbg.sort((a,b)=>b.ts-a.ts).slice(0,80);
   }catch(e){console.warn('auto-aporte',e);window.__autoErr=String(e);info.err=String(e.message||e);}
   finally{busy=false;info.t=new Date();try{showInfo();drawPend();}catch(e){}if(window.__sp)__sp.e();}
 }
@@ -6928,7 +6932,7 @@ function mountOwn(){
   const h=document.getElementById('aportes-count');if(!h||document.getElementById('own-wal'))return;
   const body=h.closest('h2').nextElementSibling;if(!body)return;
   const d=document.createElement('div');d.id='own-wal';
-  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div><div class="ow-msg" id="ow-info"></div><div class="ow-f"><button id="ow-now">Verificar agora</button></div><details class="ow-det"><summary>Ver o que foi lido na blockchain</summary><div class="ow-f"><input id="ow-hash" placeholder="Cole o hash (0x…) de uma transação para analisar"><button id="ow-hb">Analisar</button></div><div id="ow-hout"></div><div id="ow-list2"></div></details>';
+  d.innerHTML='<div class="ow-h"><b>Minhas outras carteiras</b><small>Transferências de/para estes endereços não contam como aporte nem saque.</small></div><div class="ow-list"></div><div class="ow-f"><input id="ow-nome" placeholder="Nome (ex: Ledger)"><input id="ow-addr" placeholder="0x…"><button id="ow-add">Adicionar</button></div><div class="ow-msg" id="ow-msg"></div><div class="ow-msg" id="ow-info"></div><div class="ow-f"><button id="ow-now">Verificar agora</button><span class="ow-sl">Detectar a partir de</span><input type="date" id="ow-since"><button id="ow-sb">Aplicar data</button></div><details class="ow-det"><summary>Ver o que foi lido na blockchain</summary><div class="ow-f"><input id="ow-hash" placeholder="Cole o hash (0x…) de uma transação para analisar"><button id="ow-hb">Analisar</button></div><div id="ow-hout"></div><div id="ow-list2"></div></details>';
   body.insertBefore(d,body.firstChild);
   const ap=document.createElement('div');ap.id='auto-pend';ap.style.display='none';ap.innerHTML='<div class="ap-h"><b></b></div><div class="ap-list"></div>';body.insertBefore(ap,body.firstChild);
   document.getElementById('ow-add').onclick=async()=>{
@@ -6937,6 +6941,14 @@ function mountOwn(){
     const l=ownList();if(l.some(o=>String(o.addr).toLowerCase()===a.toLowerCase())){m.textContent='Esse endereço já está na lista.';return;}
     l.push({nome:n||'Carteira',addr:a});m.textContent='Salvando...';
     try{await saveOwn(l);document.getElementById('ow-addr').value='';document.getElementById('ow-nome').value='';m.textContent='';drawOwn();}catch(e){m.textContent='Erro: '+e.message;}
+  };
+  document.getElementById('ow-sb').onclick=async()=>{
+    const v=document.getElementById('ow-since').value,m=document.getElementById('ow-info');
+    if(!v){m.textContent='Escolha uma data.';return;}
+    const ts=Date.parse(v+'T00:00:00');if(!(ts>0)){m.textContent='Data inválida.';return;}
+    if(!confirm('Tudo que a carteira recebeu ou enviou desde '+v.split('-').reverse().join('/')+' (e ainda não estiver lançado) será lançado automaticamente em Aportes e Saques. Continuar?'))return;
+    m.textContent='Aplicando…';
+    try{blob=load()||{since:ts,seen:[],v:2};blob.since=ts;blob.v=2;await save();busy=false;await run(true);}catch(e){m.textContent='Erro: '+(e.message||e);}
   };
   document.getElementById('ow-now').onclick=async()=>{const m=document.getElementById('ow-info');m.textContent='Verificando…';busy=false;await run(true);};
   document.getElementById('ow-hb').onclick=analyze;
